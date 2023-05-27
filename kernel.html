@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>mystery kernel</title>
+<style>
+::selection {
+  background: #FF5E99;
+}
+@font-face {
+  font-family: "CustomFont";
+  src: url("./cmuntt.ttf");
+}
+* { margin: 0; padding: 0; }
+body {
+  width: 100%;
+  height: 100%;
+  font-family: CustomFont;
+  font-size: 11pt;
+  overflow: hidden;
+}
+p {
+  margin: 7pt, 0, 0, 0;
+  line-height: 13pt;
+}
+@media (prefers-color-scheme: light) {
+  body {
+    background: white;
+    color: black;
+  }
+
+  .wb { border-top-style: solid; border-top-width: 1px; border-top-color: black }
+  .hlpunct { color: #bb69d4 }
+  .hlquant { color: #530ba5 }
+  .hlconst { color: #228709 }
+  .hlid { color: #cd3a05 }
+}
+@media (prefers-color-scheme: dark) {
+  body {
+    background: black;
+    color: white;
+  }
+
+  .wb { border-top-style: solid; border-top-width: 1px; border-top-color: white }
+  .hlpunct { color: #761b8b }
+  .hlquant { color: #ea329d }
+  .hlconst { color: #96f3b5 }
+  .hlid { color: #ffaa8c }
+}
+.syna {display: inline}
+.synb {display: none}
+.synae {display: inline}
+.syne {display: none}
+
+</style>
+<script type="module" src="./webkernel.js"></script>
+</head>
+<body></body>
+</html>
