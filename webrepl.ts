@@ -1,18 +1,25 @@
-import { reads, to_dot } from "./lang.js"
-import { app, bol, evaluate_one } from "./graph.js"
+import { read, to_digraph_elements, highlight_html } from "./lang.js"
+import { Term, make, app, evaluate_one } from "./graph.js"
+
+codeInput.registerTemplate("syntax-highlighted", codeInput.templates.custom(
+  function(result_element) {
+    result_element.innerHTML = highlight_html(result_element.innerText);
+    return result_element; },
+  true, true, false, [] ));
 
 const prompt = document.createElement("div");
-prompt.innerText = ">";
 prompt.className = "hlquant";
 
-const cmd = document.createElement("input");
-cmd.type="text";
+const cmd = document.createElement("code-input") as HTMLInputElement;
 cmd.autofocus = true;
 cmd.style.outline = "none";
 cmd.style.backgroundColor = "transparent";
 cmd.style.font = "inherit";
 cmd.style.border = "none";
 cmd.style.color = "inherit";
+cmd.style.margin = "none";
+cmd.style.padding = "none";
+cmd.style.whiteSpace = "nowrap";
 
 const input = document.createElement("div");
 input.style.width = "100%";
@@ -78,11 +85,7 @@ Press Ctrl+Enter to reset.</p>";
 { name: "Call a List with `\\a b.b` to pop it.", code: ["[4, 5, 6]", "\\a b.b"] },
 { name: "Call a List with `\\a b.a` to get the head.", code: ["[4, 5, 6]", "\\a b. a"] },
 { name: "Make a self-referencing list.", code: ["\\f. (\\x. x x)(\\x. f (x x)) # y combinator, for recursion #", "\\a. [a] # list which contains itself #", "\\a b. a # get the first element #", "\\a b. b # pop it #"] },
-// { name: "Prove that 1 + 1 = 2", code: ["\\f(\\x x x)(\\x f (x x)) ; \\add\\a\\b b (\\pb\\drop\\f f (add a pb)) a ; 1 ; 1 ; \\\\true ; \\\\true ; \\\\false"] },
-// { name: "Read a Record by Passing a Name", code: ["{ name: tree, home: forest, height: tall }", "[height, home]"] },
-// { name: "Self-Referencing is not Built-In", code: ["{ double: \\x\\#add [x, x], triple: \\x\\#add [double x, x] }", "triple 5"] },
-// { name: "Build a Self-Referencing Record", code: ["(\\x (/this:x) x){ double: \\x\\#add [x, x], triple: \\x\\#add [this double x, x] }", "double (triple 5)"] },
-// { name: "Create a New Programming Language", code: [ "\\f(\\x f (x x))(\\x f (x x))", "\\me \\env \\cmd { def:\\var\\val me (\\x env ((/var:val) x)), exit: env } cmd; \\x x", "def together \\x\\y \\#add [x, y]", "def apart \\x\\y \\#div [x, y]", "def x 2", "def y 3", "exit (apart (together x x) (together y 5))" ] }
+// { name: "Create a New Programming Language", code: [ "(\\f.(\\x.x x)(\\x.f (x x))) (\\machine scope command.(scope command) \\with.machine (\\next.with (scope next))) ((/def \\name val.\\m.m (/name val))(/exit \\a b.a))" ] }
 ].forEach(example => {
 const link = document.createElement('a');
 link.innerText = example.name;
@@ -91,7 +94,6 @@ link.href = "javascript:";
 link.style.textDecoration = "none";
 link.className = "hlid";
 link.onclick = async () => {
-  cmd.readOnly = true;
   reset();
   for (const each of example.code) {
     for(const i of each) {
@@ -102,7 +104,6 @@ link.onclick = async () => {
     await new Promise(f => setTimeout(f, 0))
     await dispatch();
     await new Promise(f => setTimeout(f, 500))}
-  cmd.readOnly = false;
   return false; }
 const p = document.createElement('p');
 p.append(link);
@@ -110,36 +111,74 @@ intro.append(p); });
 
 document.body.append(intro, output, input);
 
+const scheme = window.matchMedia('(prefers-color-scheme: dark)').matches;
+let [backgroundColor, foregroundColor] = [scheme ? "black" : "white", scheme ? "white" : "black"];
+let [quantifierColor, idColor, punctuatorColor, constantColor] =
+[foregroundColor, foregroundColor, foregroundColor, foregroundColor];
+// const stylesheet = document.styleSheets[0] as CSSStyleSheet
+// const rgba2hex = (rgba: string) => `#${rgba.match(/^rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*(\d+\.{0,1}\d*))?\)$/)?.slice(1).map((n, i) => (i === 3 ? Math.round(parseFloat(n) * 255) : parseFloat(n)).toString(16).padStart(2, '0').replace('NaN', '')).join('')}`;
+// for(let i = 0; i < stylesheet.cssRules.length; i++) {
+//   const rule = stylesheet.cssRules[i];
+//   if(rule instanceof CSSMediaRule && (scheme ?
+//     /\(prefers-color-scheme: ?dark\)/ : /\(prefers-color-scheme: ?light\)/).test(rule.conditionText)) {
+//     for(let i = 0; i < rule.cssRules.length; i++) {
+//       const rule2 = rule.cssRules[i];
+//       if (rule2 instanceof CSSStyleRule) {
+//         if(rule2.selectorText === 'body') {
+//           backgroundColor = rgba2hex(rule2.style.backgroundColor); }
+//         else if(rule2.selectorText === '.hlquant') {
+//           quantifierColor = rgba2hex(rule2.style.color); }
+//         else if(rule2.selectorText === '.hlpunct') {
+//           punctuatorColor = rgba2hex(rule2.style.color); }
+//         else if(rule2.selectorText === '.hlid') {
+//           idColor = rgba2hex(rule2.style.color); }
+//         else if(rule2.selectorText === '.hlconst') {
+//           constantColor = rgba2hex(rule2.style.color); } } } } }
 
-let state = bol(true);
+const digraph_preamble = `nodesep=0.3;bgcolor="${backgroundColor}";\
+node[rankjustify=min,fontsize="22",color="${quantifierColor}",fontname="CMU Typewriter Text"];\
+edge[arrowhead=none,fontsize="22",color="${punctuatorColor}",fontname="CMU Typewriter Text"];\
+{rank=min;start[label="★",fontcolor="${idColor}",shape=diamond]};start->0`;
 
-const reset = () => {
-  output.innerHTML = '';
-  state = bol(true); };
+const to_digraph_document = (title: string, s: string) =>
+`digraph ${title}{${digraph_preamble};${s}}`;
 
-const color = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'white' : 'black';
-const add_dot_config = (title: string, s: string) =>
-`digraph ${title}{rankdir=LR;nodesep=0.1;bgcolor="#00000000";node[rankjustify=min,fontcolor=${color},fontsize="11",color=${color},fontname="CMU Typewriter Text"];edge[arrowhead=none,fontcolor=${color},fontsize="11",color=${color},fontname="CMU Typewriter Text"];{rank=min;start[label="",style=filled,fixedsize=true,height=0.2,width=0.2,shape=star]};start->0;${s}}`;
+let step = 0;
+let state = null as unknown as Term;
 
-const dispatch = async () => {
-const rhs = reads([cmd.value]);
-if (!rhs) {
-  const p = document.createElement("p");
-  cmd.value += " # parse error #";
-  output.appendChild(p);
-  return; }
-const cmd2 = cmd.cloneNode() as HTMLInputElement;
+const run = async () => {
+// ew
+const input2 = input.cloneNode() as HTMLDivElement;
+output.append(input2);
+input2.append(prompt.cloneNode(true));
+const cmd2 = cmd.getElementsByTagName('pre')[0]?.getElementsByTagName('code')[0]?.cloneNode(true) as HTMLInputElement;
+input2.append(cmd2);
+cmd2.style.fontFamily = "inherit";
+cmd2.style.fontSize = "inherit";
 cmd2.autofocus = false;
 cmd2.readOnly = true;
-const input2 = input.cloneNode() as HTMLDivElement;
-input2.append(prompt.cloneNode(true), cmd2);
-output.append(input2);
 cmd.value = "";
+
+const p = document.createElement("p");
+output.appendChild(p);
 const viz = new Viz();
-state = app(state, rhs);
 for (;;) {
-  output.appendChild(await viz.renderSVGElement(add_dot_config("stateGraph", to_dot(state))));
-  output.appendChild(document.createElement('br'));
+  const box = document.createElement('span');
+  box.style.whiteSpace = "nowrap";
+  box.style.display = "inline-block";
+  const no = document.createElement('span');
+  box.appendChild(no);
+  no.innerText = `${step++}`;
+  const src =
+  to_digraph_document("stateGraph",
+    to_digraph_elements(state, idColor, punctuatorColor, constantColor));
+  const img = await viz.renderSVGElement(src);
+  img.style.verticalAlign = "top";
+  box.appendChild(img);
+  p.appendChild(box);
+  const rect = img.getBoundingClientRect();
+  img.setAttribute('width', `${rect.width * 0.5}px`);
+  img.setAttribute('height', `${rect.height * 0.5}px`);
   window.scrollTo(0, document.body.scrollHeight);
   await new Promise(r => setTimeout(r, 0));
   const next = evaluate_one(state);
@@ -147,6 +186,38 @@ for (;;) {
     window.scrollTo(0, document.body.scrollHeight);
     return; }
   else state = next} }
+
+const dispatch_fresh = async () => {
+const lhs = read([cmd.value]);
+if (!lhs) {
+  const p = document.createElement("p");
+  p.innerText = " # parse error #";
+  output.appendChild(p);
+  return; }
+state = lhs;
+run();
+prompt.innerText = '$';
+dispatch = dispatch_waiting; }
+
+const dispatch_waiting = async () => {
+const rhs = read([cmd.value]);
+if (!rhs) {
+  const p = document.createElement("p");
+  p.innerText = " # parse error #";
+  output.appendChild(p);
+  return; }
+state = make[app](state, rhs);
+run(); }
+
+prompt.innerText = '#';
+let dispatch = dispatch_fresh;
+
+const reset = () => {
+output.innerHTML = '';
+step = 0;
+state = null as unknown as Term;
+dispatch = dispatch_fresh;
+prompt.innerText = '#'; };
 
 const onresize = () => cmd.style.width = ((input.getBoundingClientRect().width - prompt.getBoundingClientRect().width) - 20).toString() + 'px';
 window.onresize = onresize;

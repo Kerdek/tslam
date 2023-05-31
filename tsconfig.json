@@ -1,5 +1,5 @@
 {
-  "files": ["viz.d.ts", "graph.ts", "webrepl.ts", "webkernel.ts"],
+  "files": ["viz.d.ts", "code-input.d.ts", "graph.ts", "webrepl.ts", "webkernel.ts"],
     "compilerOptions": {
       "target": "es6",
       "module": "es6",
@@ -13,6 +13,4 @@
       "lib": [ "es2021", "DOM" ],
       "outDir": "out",
       "sourceMap": true,
-      "moduleResolution": "Node"
-    }
-  }
+      "moduleResolution": "Node" } }

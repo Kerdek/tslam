@@ -1,4 +1,3 @@
-declare class Viz{
-  constructor()
-  renderSVGElement(text: string): Promise<HTMLElement>
-}
+declare class Viz {
+  constructor();
+  renderSVGElement(text: string): Promise<SVGSVGElement>; }
