@@ -1,0 +1,10 @@
+(\p.p \x f.f x) \let.
+let (\a.a a) \cycle.
+let (\f g x.f; g x) \compose.
+let (\a b. a) \const.
+
+let (compose cycle; compose (let cycle) compose) \fix.
+let (compose (let const) compose) \if.
+let (\a b f. f a b) \pair.
+
+pair "foo" 4 (\a b. b)

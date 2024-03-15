@@ -1,0 +1,6 @@
+(\c k.c k) (\a b.b a) (\x f.f x) \let.
+let (\f g x. f (g x)) \compose.
+let (\a b.a) \const.
+let (\a b.b) \false.
+
+const false compose compose let const (const result)
