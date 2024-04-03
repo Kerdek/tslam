@@ -1,6 +1,6 @@
-(\c k.c k) (\a b.b a) (\x f.f x) \let.
-let (\f g x. f (g x)) \compose.
-let (\a b.a) \const.
-let (\a b.b) \false.
+(\a.a a) (\x f.f x) \let.
+let (\a b.a) \left.
+let (\a b.b) \right.
+let (\a b f.f a b) \pair.
 
-const false compose compose let const (const result)
+pair "foo" (pair "bar" "baz") right left

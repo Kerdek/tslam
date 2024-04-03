@@ -66,6 +66,8 @@
         maxColumn: 80 },
       lineNumbersMinChars: 5,
       fontFamily: 'CMU Typewriter Text',
+      tabSize: 2,
+      insertSpaces: true,
       automaticLayout: true })
     if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) {
       monaco.editor.defineTheme('hcblack2', {
@@ -75,7 +77,6 @@
         colors: {
           "editorIndentGuide.background": "#555555" } })
       monaco.editor.setTheme('hcblack2') }
-    editor.updateOptions({ tabSize: 2, insertSpaces: true })
 
     editor.setValue(localStorage.getItem('system') || '')
     let win: Window | null = null

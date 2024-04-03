@@ -11,10 +11,8 @@
   const nd = (...k) => (...x) => f => f(...k)(...x)
 	const cs = x => () => x
 	const dim = m => (...x) => e => e[m](...x)
-	const tbl = o => kind => {
-		if (!(kind in o)) {
-			throw new Error(`unknown node kind ${kind}`) }
-		return o[kind] }
+	const tbl = o => kind => o[kind]
+	const mapr = (a, f) => a.map(([l, x]) => [l, f(x)])
 
   const mix2 = t => {
     const tp = 1.0 - t
@@ -23,60 +21,6 @@
 // ---------------------------------------------
 
   const { read, pretty, implement } = (() => {
-		const seq = nd('seq')
-		const abs = nd('abs')
-		const ass = nd('ass')
-    const ada = nd('ada')
-    const sua = nd('sua')
-    const mua = nd('mua')
-    const exa = nd('exa')
-    const dia = nd('dia')
-    const rea = nd('rea')
-    const lsa = nd('lsa')
-    const rsa = nd('rsa')
-    const raa = nd('raa')
-    const bca = nd('bca')
-    const xoa = nd('xoa')
-    const bda = nd('bda')
-    const lca = nd('lca')
-    const lda = nd('lda')
-		const ldj = nd('ldj')
-		const lcj = nd('lcj')
-		const bdj = nd('bdj')
-		const xor = nd('xor')
-		const bcj = nd('bcj')
-		const ceq = nd('ceq')
-		const cqq = nd('cqq')
-		const cne = nd('cne')
-		const cnn = nd('cnn')
-		const clt = nd('clt')
-		const cle = nd('cle')
-		const cgt = nd('cgt')
-		const cge = nd('cge')
-		const shl = nd('shl')
-		const shr = nd('shr')
-		const sar = nd('sar')
-		const add = nd('add')
-		const sub = nd('sub')
-		const mul = nd('mul')
-		const div = nd('div')
-		const mod = nd('mod')
-		const exp = nd('exp')
-		const pri = nd('pri')
-		const prd = nd('prd')
-		const pos = nd('pos')
-		const neg = nd('neg')
-		const not = nd('not')
-		const cmp = nd('cmp')
-		const poi = nd('poi')
-		const pod = nd('pod')
-		const app = nd('app')
-		const idx = nd('idx')
-		const ref = nd('ref')
-		const str = nd('str')
-		const num = nd('num')
-		const bol = nd('bol')
-		const lst = nd('lst')
 
 		const pretty = (() => {
 		const f = precedence => {
@@ -159,7 +103,6 @@
 				sin: Math.sin,
 				cos: Math.cos }
 			const splats = (f, a) => (...x) => f(...x)(...[].concat(...a.map(([splat, ae]) => splat ? [...ae(...x)] : [ae(...x)])))
-			const mapr = (a, f) => a.map(([l, x]) => [l, x(f)])
 			const f = (depth, locals) => {
 				const g = context => {
 					const invalid_for = (...x) => {
@@ -239,7 +182,7 @@
 						pod: unop(a => ((l, i) => l[i]--)(...a())),
 						app: (d, ...o) => {
 							invalid_for('assignment')
-							return splats(d(call), mapr(o, general)) },
+							return splats(d(call), mapr(o, di(general))) },
 						idx: (h, a) => {
 							const hp = h(general)
 							const ap = a(general)
@@ -258,7 +201,7 @@
 							throw new ReferenceError(`${id} is not defined`) },
 						lst: (...e) => {
 							invalid_for('assignment')
-							return splats(cs(li), mapr(e, general)) },
+							return splats(cs(li), mapr(e, di(general))) },
 						str: literal,
 						num: literal,
 						bol: literal }) }
@@ -290,229 +233,230 @@
 		// 		bol: () => ({}) })
 		// 	return g }
 
-		const read =
-		text => {
-			let s = text
-			const take = t => () =>
-				(ws => ws && (s = s.slice(ws.length), ws))
-				((m => m && m[1])(s.match(t)))
-			const find = (n, t) => () => {
-				const l = s.match(t)
-				if (l == null) {
-          err(`missing ${n}`) }
-				return l.index != 0 ? 0 : l[0].length }
-			const err = x => { throw new SyntaxError(x) }
-			const eof = () => s.length === 0
-			const
-			  ws = take(/^((\s|#([^#\\]|\\.)*#?)*)/),
-				tt = take(/^(true)/),
-				cd = take(/^(false)/),
-				cm = take(/^(,)/),
-				dt = take(/^(\.)[^\.]/),
-				el = take(/^(\.\.\.)/),
-				lp = take(/^(\()/),
-				rp = take(/^(\))/),
-				lb = take(/^(\[)/),
-				rb = take(/^(\])/),
-				dq = take(/^(")/),
-				eqq = take(/^(=)[^=>]/),
-				plq = take(/^(\+=)/),
-				mnq = take(/^(-=)/),
-				asq = take(/^(\*=)/),
-				exq = take(/^(\*\*=)/),
-				soq = take(/^(\/=)/),
-				pcq = take(/^(%=)/),
-				lsq = take(/^(<<=)/),
-				rsq = take(/^(>>=)/),
-				raq = take(/^(>>>=)/),
-				amq = take(/^(&=)/),
-				xoq = take(/^(\^=)/),
-				ppq = take(/^(\|=)/),
-				cjq = take(/^(&&=)/),
-				djq = take(/^(||=)/),
-				dj = take(/^(\|\|)/),
-				cj = take(/^(&&)/),
-				pp = take(/^(\|)[^\|=]/),
-				cr = take(/^(\^)[^=]/),
-				am = take(/^(&)[^&=]/),
-				ye = take(/^(==)[^=]/),
-				yy = take(/^(===)/),
-				ne = take(/^(!=)[^=]/),
-				nn = take(/^(!==)/),
-				lt = take(/^(<)[^=]/),
-				le = take(/^(<=)/),
-				gt = take(/^(>)[^=]/),
-				ge = take(/^(>=)/),
-				ls = take(/^(<<)/),
-				rs = take(/^(>>)[^>]/),
-				ra = take(/^(>>>)/),
-				pl = take(/^(\+)[^=]/),
-				mn = take(/^(-)[^=]/),
-				ex = take(/^(!)[^=]/),
-				td = take(/^(~)/),
-				as = take(/^(\*)[^=]/),
-				ep = take(/^(\*\*)[^=]/),
-				ic = take(/^(\+\+)/),
-				dc = take(/^(\-\-)/),
-				pc = take(/^(%)[^=]/),
-				so = take(/^(\/)[^=]/),
-				ar = take(/^(=>)/),
-				id = take(/^(([^\W\d][\w]*)*)/),
-				sb = take(/^(([^"\\]|\\.)*)/),
-				nm = take(/^([+-]?(?:\d+(?:\.\d*)?|\.\d*)(?:[eE][+-]?\d+)?)/),
-			  srp = find(')', /[^(]*?\)/)
-			const read18 = () => {
-				ws()
-				if (tt()) {
-					return bol(true) }
-				if (cd()) {
-					return bol(false) }
-				if (lp()) {
+		const read = (() => {
+			const node_kinds = [
+				'seq', 'abs', 'ass', 'ada', 'sua', 'mua', 'exa',
+				'dia', 'rea', 'lsa', 'rsa', 'raa', 'bca', 'xoa',
+				'bda', 'lca', 'lda', 'ldj', 'lcj', 'bdj', 'xor',
+				'bcj', 'ceq', 'cqq', 'cne', 'cnn', 'clt', 'cle',
+				'cgt', 'cge', 'shl', 'shr', 'sar', 'add', 'sub',
+				'mul', 'div', 'mod', 'exp', 'pri', 'prd', 'pos',
+				'neg', 'not', 'cmp', 'poi', 'pod', 'app', 'idx',
+				'ref', 'str', 'num', 'bol', 'lst']
+			const mk = Object.fromEntries(node_kinds.map(i => [i, nd(i)]))
+
+			return text => {
+				let s = text
+				const take = t => () =>
+					(ws => ws && (s = s.slice(ws.length), ws))
+					((m => m && m[1])(s.match(t)))
+				const find = (n, t) => () => {
+					const l = s.match(t)
+					if (l == null) {
+						err(`missing ${n}`) }
+					return l.index != 0 ? 0 : l[0].length }
+				const err = x => { throw new SyntaxError(x) }
+				const eof = () => s.length === 0
+				const tk = Object.fromEntries(mapr([
+					['ws', /^((\s|\/\*([^\*]|\*[^\/])*\*\/)*)/],
+					['tt', /^(true)/], ['cd', /^(false)/], ['cm', /^(,)/],
+					['dt', /^(\.)[^\.]/], ['el', /^(\.\.\.)/], ['lp', /^(\()/],
+					['rp', /^(\))/], ['lb', /^(\[)/], ['rb', /^(\])/],
+					['dq', /^(")/], ['eqq', /^(=)[^=>]/], ['plq', /^(\+=)/],
+					['mnq', /^(-=)/], ['asq', /^(\*=)/], ['exq', /^(\*\*=)/],
+					['soq', /^(\/=)/], ['pcq', /^(%=)/], ['lsq', /^(<<=)/],
+					['rsq', /^(>>=)/], ['raq', /^(>>>=)/], ['amq', /^(&=)/],
+					['xoq', /^(\^=)/], ['ppq', /^(\|=)/], ['cjq', /^(&&=)/],
+					['djq', /^(||=)/], ['dj', /^(\|\|)[^=]/], ['cj', /^(&&)[^=]/],
+					['pp', /^(\|)[^\|=]/], ['cr', /^(\^)[^=]/],
+					['am', /^(&)[^&=]/], ['ye', /^(==)[^=]/],
+					['yy', /^(===)/], ['ne', /^(!=)[^=]/], ['nn', /^(!==)/],
+					['lt', /^(<)[^=<]/], ['le', /^(<=)/], ['gt', /^(>)[^=>]/],
+					['ge', /^(>=)/], ['ls', /^(<<)[^=]/], ['rs', /^(>>)[^>]/],
+					['ra', /^(>>>)/], ['pl', /^(\+)[^=+]/], ['mn', /^(-)[^=-]/],
+					['ex', /^(!)[^=]/], ['td', /^(~)/], ['as', /^(\*)[^=\*]/],
+					['ep', /^(\*\*)[^=]/], ['ic', /^(\+\+)/],
+					['dc', /^(\-\-)/], ['pc', /^(%)[^=]/], ['so', /^(\/)[^=]/],
+					['ar', /^(=>)/], ['id', /^(([^\W\d][\w]*)*)/],
+					['sb', /^(([^"\\]|\\.)*)/],
+					['nm', /^([+-]?(?:\d+(?:\.\d*)?|\.\d*)(?:[eE][+-]?\d+)?)/]], take))
+				const srp = find(')', /[^(]*?\)/)
+				const readn = i => mk.num(Number.parseFloat(i))
+				const readb = i => mk.bol(i === 'true')
+				const readi = i => {
+					tk.ws()
+					if (tk.ar()) {
+						return mk.abs(readx[1](), undefined, i) }
+					return mk.ref(i) }
+				const readq = () => {
+					const val = tk.sb()
+					if (!tk.dq()) {
+						err('expected "') }
+					return mk.str(JSON.parse(`"${val}"`)) }
+				const reade = () => {
+					tk.ws()
+					if (tk.rb()) {
+						return mk.lst() }
+					const elems = []
+					for (;;) {
+						tk.ws()
+						elems.push([!!tk.el(), readx[1]()])
+						tk.ws()
+						if (tk.rb()) {
+							break }
+						if (!tk.cm()) {
+							err('expected , or ]') } }
+					return mk.lst(...elems) }
+				const readp = () => {
 					const r = srp()
 					const t = s
 					s = t.slice(r)
-					ws()
-					const is_lambda = !!ar()
+					tk.ws()
+					const is_lambda = !!tk.ar()
 					s = t
 					if (is_lambda) {
-						if (rp()) {
-							ws()
-							ar()
-							return abs(read2()) }
+						if (tk.rp()) {
+							tk.ws()
+							tk.ar()
+							return mk.abs(readx[1]()) }
 						const is = []
 						for (;;) {
-							ws()
-							const rest = !!el()
-							ws()
-							const i = id()
+							tk.ws()
+							const rest = !!tk.el()
+							tk.ws()
+							const i = tk.id()
 							if (!i) {
 								err('expected identifier') }
-							ws()
+							tk.ws()
 							if (rest) {
-								if (!rp()) {
+								if (!tk.rp()) {
 									err('expected )') }
-								ws()
-								ar()
-								return abs(read2(), i, ...is) }
+								tk.ws()
+								tk.ar()
+								return mk.abs(readx[1](), i, ...is) }
 							is.push(i)
-							if (rp()) {
-								ws()
-								ar()
-								return abs(read2(), undefined, ...is) }
-							if (!cm()) {
+							if (tk.rp()) {
+								tk.ws()
+								tk.ar()
+								return mk.abs(readx[1](), undefined, ...is) }
+							if (!tk.cm()) {
 								err('expected ,') } } }
-					const e = read1();
-					if (!rp()) {
+					const e = readx[0]();
+					if (!tk.rp()) {
 						err('expected )') }
 					return e }
-				if (lb()) {
-					ws()
-					if (rb()) {
-						return lst() }
-					const elems = []
+
+				const primaries = [
+					['tt', readb], ['cd', readb], ['lp', readp],
+					['lb', reade], ['dq', readq], ['id', readi],
+				  ['nm', readn]]
+
+				const prefixes = [
+					['ic', 'pri'], ['dc', 'prd'], ['pl', 'pos'],
+					['mn', 'neg'], ['ex', 'not'], ['td', 'cmp']]
+
+				const readt = () => {
+					tk.ws()
+					for (const [token, read] of primaries) {
+						const i = tk[token]()
+						if (i) {
+							return read(i); } }
+					for (const [token, node] of prefixes) {
+						if (tk[token]()) {
+							return nd(node)(reads()) } }
+					err('expected expression') }
+
+				const reads = () => {
+					let lhs = readt()
 					for (;;) {
-						ws()
-						elems.push([!!el(), read2()])
-						ws()
-						if (rb()) {
-							break }
-						if (!cm()) {
-							err('expected , or ]') } }
-					return lst(...elems) }
-				if (dq()) {
-					const val = sb()
-					if (!dq()) {
-						err('expected "') }
-					return str(JSON.parse(`"${val}"`)) }
-				let i = id()
-				if (i) {
-					ws()
-					if (ar()) {
-						return abs(read2(), undefined, i) }
-					return ref(i) }
-				i = nm()
-				if (i) {
-					return num(Number.parseFloat(i)) }
-				for (const [token, node] of [
-					[ic, pri], [dc, prd], [pl, pos],
-					[mn, neg], [ex, not], [td, cmp]]) {
-					if (token()) {
-						return node(read17()) } }
-				err('expected expression') }
-			const read17 = () => {
-				let lhs = read18()
-				for (;;) {
-					ws()
-					if (ic()) {
-            lhs = poi(lhs)
-						continue }
-					if (dc()) {
-            lhs = pod(lhs)
-						continue }
-					if (lp()) {
-						ws()
-						if (rp()) {
-							lhs = app(lhs)
+						tk.ws()
+						if (tk.ic()) {
+							lhs = mk.poi(lhs)
 							continue }
-						const rhss = []
-						for (;;) {
-							ws()
-							rhss.push([!!el(), read2()])
-							ws()
-							if (rp()) {
-								break }
-							if (!cm()) {
-								err('expected , or )') } }
-						lhs = app(lhs, ...rhss) }
-					else if (lb()) {
-						const rhs = read2()
-						ws()
-						if (!rb()) {
-							err('expected ]') }
-						lhs = idx(lhs, rhs) }
-					else {
-						return lhs } } }
-			const ifxra = (then, nodes) => {
-				const f = () => {
+						if (tk.dc()) {
+							lhs = mk.pod(lhs)
+							continue }
+						if (tk.lp()) {
+							tk.ws()
+							if (tk.rp()) {
+								lhs = mk.app(lhs)
+								continue }
+							const rhss = []
+							for (;;) {
+								tk.ws()
+								rhss.push([!!tk.el(), readx[1]()])
+								tk.ws()
+								if (tk.rp()) {
+									break }
+								if (!tk.cm()) {
+									err('expected , or )') } }
+							lhs = mk.app(lhs, ...rhss) }
+						else if (tk.lb()) {
+							const rhs = readx[1]()
+							tk.ws()
+							if (!tk.rb()) {
+								err('expected ]') }
+							lhs = mk.idx(lhs, rhs) }
+						else {
+							return lhs } } }
+
+				const right = (then, ...nodes) => {
+					const f = () => {
+						let lhs = then()
+						tk.ws()
+						for (const [token, node] of nodes) {
+							if (tk[token]()) {
+								const rhs = f()
+								return mk[node](lhs, rhs) } }
+						return lhs }
+					return f }
+
+				const left = (then, ...nodes) => () => {
 					let lhs = then()
-					ws()
-					for (const [token, node] of nodes) {
-						if (token()) {
-							const rhs = f()
-							return node(lhs, rhs) } }
-					return lhs }
-				return f }
-			const ifxla = (then, nodes) => () => {
-				let lhs = then()
-				for (;;) {
-				  ws()
-					let done = true
-					for (const [token, node] of nodes) {
-						if (token()) {
-							const rhs = then()
-							ws()
-							lhs = node(lhs, rhs)
-							done = false
-							break } }
-					if (done) {
-						return lhs } } }
-			const read13 = ifxla(read17, [[ep, exp]])
-			const read12 = ifxla(read13, [[as, mul], [so, div], [pc, mod]])
-			const read11 = ifxla(read12, [[pl, add], [mn, sub]])
-			const read10 = ifxla(read11, [[ls, shl], [rs, shr], [ra, sar]])
-			const read9 = ifxla(read10, [[lt, clt], [le, cle], [gt, cgt], [ge, cge]])
-			const read8 = ifxla(read9, [[ye, ceq], [yy, cqq], [ne, cne], [nn, cnn]])
-			const read7 = ifxla(read8, [[am, bcj]])
-			const read6 = ifxla(read7, [[cr, xor]])
-			const read5 = ifxla(read6, [[pp, bdj]])
-			const read4 = ifxla(read5, [[cj, lcj]])
-			const read3 = ifxla(read4, [[dj, ldj]])
-			const read2 = ifxra(read3, [[eqq, ass], [plq, ada], [mnq, sua], [asq, mua], [soq, dia], [exq, exa], [pcq, rea], [lsq, lsa], [rsq, rsa], [raq, raa], [amq, bca], [xoq, xoa], [ppq, bda], [cjq, lca], [djq, lda]])
-			const read1 = ifxra(read2, [[cm, seq]])
-			const e = read1()
-			if (!eof()) {
-				err('expected eof') }
-			return e }
+					for (;;) {
+						tk.ws()
+						let done = true
+						for (const [token, node] of nodes) {
+							if (tk[token]()) {
+								const rhs = then()
+								tk.ws()
+								lhs = mk[node](lhs, rhs)
+								done = false
+								break } }
+						if (done) {
+							return lhs } } }
+
+				const readx = [
+					[right, ['cm', 'seq']],
+					[right,
+						['eqq', 'ass'], ['plq', 'ada'], ['mnq', 'sua'],
+						['asq', 'mua'], ['soq', 'dia'], ['exq', 'exa'],
+						['pcq', 'rea'], ['lsq', 'lsa'], ['rsq', 'rsa'],
+						['raq', 'raa'], ['amq', 'bca'], ['xoq', 'xoa'],
+						['ppq', 'bda'], ['cjq', 'lca'], ['djq', 'lda']],
+					[left, ['dj', 'ldj']],
+					[left, ['cj', 'lcj']],
+					[left, ['pp', 'bdj']],
+					[left, ['cr', 'xor']],
+					[left, ['am', 'bcj']],
+					[left,
+					  ['ye', 'ceq'], ['yy', 'cqq'],
+						['ne', 'cne'], ['nn', 'cnn']],
+					[left,
+					  ['lt', 'clt'], ['le', 'cle'],
+						['gt', 'cgt'], ['ge', 'cge']],
+					[left, ['ls', 'shl'], ['rs', 'shr'], ['ra', 'sar']],
+					[left, ['pl', 'add'], ['mn', 'sub']],
+					[left, ['as', 'mul'], ['so', 'div'], ['pc', 'mod']],
+					[left, ['ep', 'exp']]]
+				let prev = reads
+				for (let i = 12; i--;) {
+					const [which, ...parts] = readx[i]
+					prev = readx[i] = which(prev, ...parts) }
+				const e = readx[0]()
+				if (!eof()) {
+					err('expected eof') }
+				return e } })()
 
 		return { read, pretty, implement }
 	})()
