@@ -1,5 +1,5 @@
-import { read, to_digraph_elements, highlight_html } from "./lang.js"
-import { Graph, make, evaluate, uni, app, qot, ref, str, bol } from "./graph.js"
+import { read, to_digraph_elements, highlight_html, pretty } from "./lang.js"
+import { Graph, make, evaluate, unthunk, uni, app, qot, ref, str, bol } from "./graph.js"
 
 document.body.style.position = "absolute"
 document.body.style.inset = "0px"
@@ -13,8 +13,8 @@ const create_element: <K extends keyof HTMLElementTagNameMap>(tag: K, mod: (this
 
 const reset = () => {
   getKeyHandler = undefined
-  let program = read([system.textContent || '']);
-  if (program) doIO(evaluate(program)); }
+  let program = read([system.textContent || ''])
+  if (program) doIO(evaluate(program)) }
 
 const intro = create_element('div', function () {
   this.className = "hlconst"
@@ -72,7 +72,7 @@ const system2 = create_element('div', function () {
   this.style.color = "inherit"
   this.style.font = "inherit"
   this.style.whiteSpace = "pre"
-  this.style.overflow = "hidden" }, [])
+  this.style.overflow = "scroll" }, [])
 
 let ranges: [number, number, number][] = []
 const update_highlight =
@@ -194,13 +194,11 @@ system.addEventListener('paste', function (e) {
       selRange.insertNode(document.createTextNode(content)) } }
   update_highlight() })
 
-const entry_cell = create_element('td', function () { this.className = "wb"; this.style.display = "flex"; this.style.position = "relative" }, [system, system2])
-const entry_row =create_element('tr', function () {  }, [entry_cell])
-
-const update_entry_height = () => {
-  entry_row.style.height = system.style.height }
-system.addEventListener('resize', update_entry_height)
-update_entry_height()
+const entry_cell = create_element('td', function () {
+  this.className = "wb"
+  this.style.display = "flex"
+  this.style.position = "relative" }, [system2, system])
+const entry_row = create_element('tr', function () {  }, [entry_cell])
 
 const output = create_element("td", function () {
   this.tabIndex = 2
@@ -237,13 +235,11 @@ document.body.append(create_element('table', function () {
 
 const scheme = window.matchMedia('(prefers-color-scheme: dark)').matches;
 let [backgroundColor, foregroundColor] = [scheme ? "black" : "white", scheme ? "white" : "black"];
-let [quantifierColor, idColor, punctuatorColor, constantColor] =
-[foregroundColor, foregroundColor, foregroundColor, foregroundColor];
 
 const digraph_preamble = `nodesep=0.3;bgcolor="${backgroundColor}";\
-node[rankjustify=min,fontsize="22",color="${quantifierColor}",fontname="CMU Typewriter Text"];\
-edge[arrowhead=none,fontsize="22",color="${punctuatorColor}",fontname="CMU Typewriter Text"];\
-{rank=min;start[label="★",fontcolor="${idColor}",shape=diamond]};start->0`;
+node[rankjustify=min,fontsize="22",color="${foregroundColor}",fontcolor="${foregroundColor}",fontname="CMU Typewriter Text"];\
+edge[arrowhead=none,fontsize="22",color="${foregroundColor}",fontname="CMU Typewriter Text"];\
+{rank=min;start[label="",style=filled,color="${foregroundColor}",shape=diamond,fixedsize=true,width=0.5,height=0.5]};start->0`;
 
 const to_digraph_document = (title: string, s: string) =>
 `digraph ${title}{${digraph_preamble};${s}}`;
@@ -262,31 +258,42 @@ const passId = Symbol.for('pass');
 const clearId = Symbol.for('clear');
 const readId = Symbol.for('read');
 
-const doPutStr: (e: Graph) => Promise<boolean> = async e => {
-  if (e.kind === str) {
-    output.innerText += e.val;
-    return true; }
-  else {
-    for (;;) {
-      const each = evaluate(make(app, e, head));
-      e = evaluate(make(app, e, tail));
-      if (each.kind === bol && each.val) return true;
-      else if (!await doPutStr(each)) return false; } } }
+const doPutStr: (e: Graph) => void = e => {
+  let parts = [e]
+  for (;;) {
+    let [a, ...rest] = parts
+    if (!a) return
+    a = evaluate(a)
+    if (a.kind === bol) {
+      parts = rest }
+    else if (a.kind === str) {
+      parts = rest
+      output.innerText += a.val }
+    else {
+      parts = [make(app, a, head), make(app, a, tail), ...rest] } } }
 
 const doIO: (io: Graph) => Promise<Graph> = async io => {
+const f = async () => {
 for (;;) {
-  const err = async () => {
+  io = unthunk(io)
+  const err: () => Promise<Graph> = async () => {
+    output.appendChild(create_element('p', function() {}, [document.createTextNode(`bad io:\n    ${pretty(io)(0, true)}\n`)]))
     if (w) {
-      w.document.body.innerHTML = ''
       const src = to_digraph_document("stateGraph",
-        to_digraph_elements(io, idColor, punctuatorColor, constantColor))
+        to_digraph_elements(1000, io))
       const viz = new Viz()
-      const img = await viz.renderSVGElement(src)
-      img.style.verticalAlign = "top"
-      w.document.body.appendChild(img)
-      const rect = img.getBoundingClientRect()
-      img.setAttribute('width', `${rect.width * 0.5}px`)
-      img.setAttribute('height', `${rect.height * 0.5}px`) }
+      try {
+        const img = await viz.renderSVGElement(src)
+        img.style.verticalAlign = "top"
+        w.document.body.appendChild(img)
+        const rect = img.getBoundingClientRect()
+        img.setAttribute('width', `${rect.width * 0.5}px`)
+        img.setAttribute('height', `${rect.height * 0.5}px`) }
+      catch (e) {
+        if (e instanceof Error) {
+          output.append(create_element('p', function () {}, [document.createTextNode(e.toString())]))
+          output.append(document.createTextNode(src)) }
+      } }
     return make(bol, false) }
   if (io.kind === app) {
     const l = io.lhs
@@ -299,7 +306,8 @@ for (;;) {
       else return await err() }
     else if (l.kind === ref) {
       if (l.id == putStrId) {
-        return make(bol, await doPutStr(io.rhs)) }
+        doPutStr(io.rhs)
+        return make(bol, true) }
       else if (l.id === readId) {
         const r = evaluate(io.rhs)
         if (r.kind === str) {
@@ -321,9 +329,23 @@ for (;;) {
       return make(bol, true) }
     else return await err() }
   else return await err() } }
-
-window.addEventListener('keydown', i => {
-if (i.ctrlKey) {
-  if (i.key === "Enter") {
-    i.preventDefault()
-    reset() } } })
+if (w) {
+  w.document.body.innerHTML = '' }
+const g = await f()
+if (w && getKeyHandler) {
+  const src = to_digraph_document("stateGraph",
+    to_digraph_elements(1000, getKeyHandler))
+  const viz = new Viz()
+  try {
+    const img = await viz.renderSVGElement(src)
+    img.style.verticalAlign = "top"
+    w.document.body.appendChild(img)
+    const rect = img.getBoundingClientRect()
+    img.setAttribute('width', `${rect.width * 0.5}px`)
+    img.setAttribute('height', `${rect.height * 0.5}px`) }
+  catch (e) {
+    if (e instanceof Error) {
+      output.append(create_element('p', function () {}, [document.createTextNode(e.toString())]))
+      output.append(document.createTextNode(src)) }
+  } }
+return g }
