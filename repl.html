@@ -2,11 +2,73 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>mystery repl</title>
-<link rel="stylesheet" href="./repl.css">
+<title>Almost a Lévy-optimal graph reducer using shared lets</title>
+<style>
+::selection {
+  background: #FF5E99;
+}
+@font-face {
+  font-family: "CMU Typewriter Text";
+  src: url("./cmuntt.ttf");
+}
+body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  font-family: CMU Typewriter Text;
+  font-size: 11pt;
+}
+p {
+  margin: 7pt, 0, 0, 0;
+  line-height: 13pt;
+}
+@media (prefers-color-scheme: light) {
+  body {
+    background: #FFFFFF;
+    color: #000000;
+  }
+
+  .hlpunct { color: #bb69d4 }
+  .hlparn0 { color: #512881 }
+  .hlparn1 { color: #6e1680 }
+  .hlparn2 { color: #892365 }
+  .hlparn3 { color: #a32e5b }
+  .hlparn4 { color: #a13648 }
+  .hlparn5 { color: #a85334 }
+  .hlquant { color: #530ba5 }
+  .hlconst { color: #228709 }
+  .hlid { color: #cd3a05 }
+  .hlws { color: #3e8888 }
+}
+@media (prefers-color-scheme: dark) {
+  body {
+    background: #000000;
+    color: #FFFFFF;
+  }
+
+  .hlpunct { color: #9a1d3e }
+  .hlparn0 { color: #512881 }
+  .hlparn1 { color: #6e1680 }
+  .hlparn2 { color: #892365 }
+  .hlparn3 { color: #a32e5b }
+  .hlparn4 { color: #a13648 }
+  .hlparn5 { color: #a85334 }
+  .hlquant { color: #bb4088 }
+  .hlconst { color: #96f3b5 }
+  .hlid { color: #ffaa8c }
+  .hlws { color: #006969 }
+}
+.syna {display: inline}
+.synb {display: none}
+.synae {display: inline}
+.syne {display: none}
+
+</style>
+<link rel="stylesheet" href="./code-input.css">
+<script src="./code-input.js"></script>
 <script src="./viz.js"></script>
 <script src="./lite.render.js"></script>
-<script type="module" src="./repl.js"></script>
+<script type="module" src="./webrepl.js"></script>
 </head>
 <body></body>
 </html>
