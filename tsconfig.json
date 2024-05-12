@@ -1,5 +1,5 @@
 {
-  "files": ["plotter.ts", "plotter.d.ts", "viz.d.ts", "code-input.d.ts", "lang.ts", "graph.ts", "webrepl.ts", "webkernel.ts"],
+  "files": ["plotter.ts", "plotter.d.ts", "viz.d.ts", "lang.ts", "graph.ts", "webrepl.ts", "webkernel.ts"],
     "compilerOptions": {
       "target": "es6",
       "module": "es6",

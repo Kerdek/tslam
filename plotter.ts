@@ -1,6 +1,19 @@
-(require as any).config({ paths: { vs: './monaco-editor/samples/node_modules/monaco-editor/min/vs' } });
+(async () => {
 
-(() => {
+  document.title = 'mystery playground'
+
+  const include: (src: string) => Promise<Event> =
+  src => new Promise(cb => {
+    const js = document.createElement('script')
+    js.src = src
+    js.type = 'text/javascript'
+    js.addEventListener('load', cb)
+    document.head.appendChild(js) })
+
+  await include('./monaco-editor/samples/node_modules/monaco-editor/min/vs/loader.js')
+
+  ;(require as any).config({ paths: { vs: './monaco-editor/samples/node_modules/monaco-editor/min/vs' } })
+
   const style_rule: (x: string) => number = (() => {
     const style = document.head.appendChild(document.createElement('style'))
     const ss = style.sheet
@@ -78,10 +91,10 @@
           "editorIndentGuide.background": "#555555" } })
       monaco.editor.setTheme('hcblack2') }
 
-    editor.setValue(localStorage.getItem('system') || '')
+    editor.setValue(localStorage.getItem('jsplayground-system') || '')
     let win: Window | null = null
     const reset = () => {
-      localStorage.setItem('system', editor.getValue())
+      localStorage.setItem('jsplayground-system', editor.getValue())
       if (!win || win.closed) {
         win = window.open()
         if (win) {

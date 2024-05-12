@@ -251,7 +251,6 @@
 						err(`expected ${s}`) }
 					return i }
 
-
 				const right_infixes = [
 					[['cm', nd('seq')]],
 					[
@@ -730,6 +729,8 @@
 				--dim_color: gray;
 				--background_color: black; } }`,
 
+		`* { margin: 0; padding: 0 }`,
+
     `body {
 			font-family: Typewriter;
 			font-size: 30pt;
@@ -743,12 +744,12 @@
 			height: 100vh; }`,
 
     `.formula {
+			flex: 0 1 auto;
 			white-space: pre;
 			outline: none;
 			height: 50pt;
 			overflow: scroll;
-			resize: vertical;
-			width: 100%; }`,
+			resize: vertical; }`,
 
     `.entry {
 			white-space: nowrap;
@@ -807,6 +808,8 @@ x =>
   let(Array(floor(0.75 * (x + 4) + 1)))(a =>
   map(g)(...a)))))`
 
+  document.body.style.display = "flex"
+
 	const formula = html_div({ class: 'formula' })(t(default_formula_value))
 	const [xmin, xmax, ymin, ymax] = [-4, 4, -4, 4].map(i => html_span({ class: 'limit entry' })(t(`${i}`)))
   const segments = html_span({ class: 'segments entry' })(t(`1000`))
@@ -818,15 +821,17 @@ x =>
 
   const put = x => document.body.appendChild(x)
 
-	const top = put(html_div({ style: "flex: 0 0 auto; overflow: hidden;" })(
-		html_div({ style: "border: 1px solid white;" })(formula),
-		div_center(t('x from '), xmin, t(' to '), xmax),
-		div_center(t('y from '), ymin, t(' to '), ymax),
-		div_center(segments, t(' segments')),
-		div_center(diagonal, t(' diagonal pixels'))))
+	put(
+		html_div({})(formula))
+	put(html_div({ style: 'flex: 1 1 auto; overflow: hidden; border-top: 1px solid white; display: flex; flex-flow: row;' })(
+			html_div({ style: 'flex: 0 0 auto; resize: horizontal; overflow: hidden;' })(
+				div_center(t('x from '), xmin, t(' to '), xmax),
+				div_center(t('y from '), ymin, t(' to '), ymax),
+				div_center(segments, t(' segments')),
+				div_center(diagonal, t(' diagonal pixels'))),
 
-	put(html_div({ style: "border: 1px solid white; flex-grow: 1; overflow: auto;" })(
-		output))
+			html_div({ style: 'flex: 1 1 auto; overflow: scroll;' })(
+				output)))
 
   const update = () => {
 		const pfp = x => parseFloat(x.innerHTML)

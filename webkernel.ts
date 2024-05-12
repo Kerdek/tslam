@@ -1,30 +1,28 @@
-
-import { read, to_digraph_elements, highlight_html } from "./lang.js"
-import { Graph, make, evaluate, unthunk, lib, makestr, sym, reduce } from "./graph.js"
+import { read, highlight_html, pretty, to_outline, RangeBSearch, jso_to_graph, graph_to_jso } from "./lang.js"
+import { Graph, make, evaluate, unthunk, sym, flatten_stringlike, GraphN, Vars, VarsN } from "./graph.js"
 
 (async () => {
 
 document.title = 'mystery kernel'
 
-const include: (src: string) => Promise<void> =
-src => {
+const include: (src: string) => Promise<Event> =
+src => new Promise(cb => {
   const js = document.createElement('script')
   js.src = src
   js.type = 'text/javascript'
-  let js_cb: () => void
-  js.addEventListener('load', () => js_cb())
-  document.head.appendChild(js)
-  return new Promise<void>(cb => js_cb = cb) }
+  js.addEventListener('load', cb)
+  document.head.appendChild(js) })
 
 await include("./viz.js")
 await include("./lite.render.js")
 
-const style_sheet = document.head.appendChild(document.createElement('style')).sheet
+const style_element = document.createElement('style')
+const style_sheet = document.head.appendChild(style_element).sheet
 
-const style_rule: (x: string) => number =
-style_sheet ? x => style_sheet.insertRule(x, 0) : () => -1
+const style_rule: (x: string) => void =
+style_sheet ? x => style_sheet.insertRule(x, 0) : () => {}
 
-style_rule(`::selection { background: #FF5E99; }`)
+style_rule(`::selection { background: #5c0a28; }`)
 style_rule(`* { margin: 0px; padding: 0px; }`)
 style_rule(`@font-face {
   font-family: CustomFont;
@@ -35,114 +33,149 @@ style_rule(`body {
   flex-flow: column;
   inset: 0px;
   font-family: CustomFont;
-  font-size: 11pt; }`)
+  font-size: 11pt;
+  line-height: 13pt; }`)
+style_rule(`.ree::after {
+  content: '\\200D'; }`)
+style_rule(`@media (prefers-color-scheme: light) {
+  :root {
+    --foreground: black;
+    --dim: gray;
+    --background: white;
+    --punct: #bb69d4;
+    --parn0: #512881;
+    --parn1: #6e1680;
+    --parn2: #892365;
+    --parn3: #a32e5b;
+    --parn4: #a13648;
+    --parn5: #a85334;
+    --quant: #530ba5;
+    --const: #228709;
+    --key: #280a8c;
+    --id: #cd3a05;
+    --ws: #3e8888; } }`)
+style_rule(`@media (prefers-color-scheme: dark) {
+  :root {
+    --foreground: white;
+    --dim: gray;
+    --background: black;
+    --punct: #9a1d3e;
+    --parn0: #512881;
+    --parn1: #6e1680;
+    --parn2: #892365;
+    --parn3: #a32e5b;
+    --parn4: #a13648;
+    --parn5: #a85334;
+    --quant: #bb4088;
+    --const: #96f3b5;
+    --key: #7e57ff;
+    --id: #ffaa8c;
+    --ws: #006969; } }`)
+
+style_rule(`body {
+  background: var(--background);
+  color: var(--foreground);
+  caret-color: var(--foreground); }`)
 style_rule(`.wb {
   border-top-style: solid;
-  border-top-width: 1px; }`)
-style_rule(`@media (prefers-color-scheme: light) {
-  body {
-    background: white;
-    color: black;
-    caret-color: black; }
-  .wb { border-top-color: black }
-  .hlpunct { color: #bb69d4 }
-  .hlparn0 { color: #512881 }
-  .hlparn1 { color: #6e1680 }
-  .hlparn2 { color: #892365 }
-  .hlparn3 { color: #a32e5b }
-  .hlparn4 { color: #a13648 }
-  .hlparn5 { color: #a85334 }
-  .hlquant { color: #530ba5 }
-  .hlconst { color: #228709 }
-  .hlid { color: #cd3a05 }
-  .hlws { color: #3e8888 } }`)
-style_rule(`@media (prefers-color-scheme: dark) {
-  body {
-    background: black;
-    color: white;
-    caret-color: white; }
-  .wb { border-top-color: white }
-  .hlpunct { color: #9a1d3e }
-  .hlparn0 { color: #512881 }
-  .hlparn1 { color: #6e1680 }
-  .hlparn2 { color: #892365 }
-  .hlparn3 { color: #a32e5b }
-  .hlparn4 { color: #a13648 }
-  .hlparn5 { color: #a85334 }
-  .hlquant { color: #bb4088 }
-  .hlconst { color: #96f3b5 }
-  .hlid { color: #ffaa8c }
-  .hlws { color: #006969 } }`)
+  border-top-width: 1px;
+  border-top-color: var(--foreground); }`)
+style_rule(`.hlpunct { color: var(--punct); }`)
+style_rule(`.hlparn0 { color: var(--parn0); }`)
+style_rule(`.hlparn1 { color: var(--parn1); }`)
+style_rule(`.hlparn2 { color: var(--parn2); }`)
+style_rule(`.hlparn3 { color: var(--parn3); }`)
+style_rule(`.hlparn4 { color: var(--parn4); }`)
+style_rule(`.hlparn5 { color: var(--parn5); }`)
+style_rule(`.hlquant { color: var(--quant); }`)
+style_rule(`.hlconst { color: var(--const); }`)
+style_rule(`.hlkey { color: var(--key); }`)
+style_rule(`.hlid { color: var(--id); }`)
+style_rule(`.hlws { color: var(--ws); }`)
+style_rule(`svg .edge path, svg .node ellipse, svg .node polygon {
+  stroke: var(--foreground);
+  fill: none; }`)
+style_rule(`svg .node text, svg .edge polygon, svg .node.start polygon {
+  stroke: none;
+  fill: var(--foreground); }`)
+style_rule(`svg .node.start text {
+  stroke: none;
+  fill: var(--background); }`)
 
-const element: <K extends keyof HTMLElementTagNameMap>(tag: K, mod: (this: HTMLElementTagNameMap[K]) => void, children: Node[]) => HTMLElementTagNameMap[K] =
+type Element = <K extends keyof HTMLElementTagNameMap>(tag: K, mod: (this: HTMLElementTagNameMap[K]) => void, children: Node[]) => HTMLElementTagNameMap[K]
+const element: Element =
 (tag, mod, children) => {
   const elem = document.createElement(tag)
   mod.apply(elem)
   elem.append(...children)
   return elem }
 
-const txt: (x: string) => Text =
-x => document.createTextNode(x)
+type Txt = (x: string) => Text
+const txt: Txt = x => document.createTextNode(x)
+
+const coop = () => new Promise(cb => window.setTimeout(cb, 0))
+
+const reset_link = element('a', function() {
+  this.href = '#'
+  this.addEventListener('click', () => reset()) }, [
+    txt('reset') ])
+
+const debug_link = element('a', function() {
+  this.innerText = 'debug'
+  this.href = '#'
+  this.addEventListener('click', async () => {
+    if (debug_window && !debug_window.closed) return
+    const d = window.open('about:blank', '_blank', "height=200,width=200")
+    if (!d) return
+    await new Promise(cb => d.addEventListener('load', cb))
+    const debug_style_element = document.createElement('style')
+    d.document.head.appendChild(debug_style_element)
+    const debug_style_sheet = debug_style_element.sheet
+    if (!debug_style_sheet) return
+    if (!style_sheet) return
+    for (let i = 0; i < style_sheet.cssRules.length; i++) {
+      const r = style_sheet.cssRules[i]
+      if (r) {
+        debug_style_sheet.insertRule(r.cssText) } }
+    d.document.body.innerHTML = ''
+    d.document.body.style.whiteSpace = 'pre'
+    debug_window = d }) }, [])
 
 const intro = element('div', function () {
-  this.className = "hlconst"
-  this.style.flex = "0 1 auto" }, [
-    txt('Edit the program in the top box. Press '),
-    element('a', function() {
-      this.href = '#'
-      this.addEventListener('click', () => reset()) }, [
-        txt('Ctl+Enter') ]),
-    txt(' to run. Type in the bottom box to fuel the system.')
-  ])
+  this.style.flex = "0 1 auto" },
+  [reset_link, txt(' '), debug_link])
 document.body.appendChild(intro)
 
-let debugWindow: Window | null = null
+let debug_window: Window | null = null
 
-const debug = element('a', function() {
-  this.innerText = 'Debug'
-  this.href = '#'
-  this.addEventListener('click', () => {
-    debugWindow = window.open('about:blank', '_blank')
-    if (debugWindow) {
-      const w2 = debugWindow
-      debugWindow.addEventListener('load', () => {
-        const body = w2.document.body
-        body.innerHTML = ''
-        body.style.margin = "0"
-        body.style.padding = "0"
-        body.style.background = backgroundColor
-        body.style.color = foregroundColor }) } }) }, [])
-
-intro.appendChild(debug)
+const system_common_style: (s: CSSStyleDeclaration) => void = s => {
+  s.border = "none"
+  s.background = "transparent"
+  s.color = "inherit"
+  s.font = "inherit"
+  s.whiteSpace = "pre"
+  s.overflow = "scroll" }
 
 const system = element('div', function () {
+  this.className = 'ree'
   this.tabIndex = 1
   this.spellcheck = false
   this.toggleAttribute('contenteditable')
   this.style.width = "100%"
   this.style.height = "200pt"
-  this.style.border = "none"
   this.style.outline = "none"
-  this.style.background = "transparent"
-  this.style.color = "inherit"
   this.style.setProperty('-webkit-text-fill-color', "transparent")
-  this.style.font = "inherit"
-  this.style.whiteSpace = "pre"
-  this.style.overflow = "scroll"
-  this.style.resize = "vertical" }, [])
+  this.style.resize = "vertical"
+  system_common_style(this.style) }, [])
 
 const system2 = element('div', function () {
+  this.className = 'ree'
   this.style.position = "absolute"
   this.style.pointerEvents = "none"
   this.style.inset = "0px"
-  this.style.border = "none"
-  this.style.background = "transparent"
-  this.style.color = "inherit"
-  this.style.font = "inherit"
-  this.style.whiteSpace = "pre"
-  this.style.overflow = "scroll" }, [])
+  system_common_style(this.style) }, [])
 
-let ranges: [number, number, number][] = []
+let ranges: RangeBSearch
 const update_highlight =
 () => {
   const [t, r] = highlight_html(system.textContent || '')
@@ -163,22 +196,20 @@ system.addEventListener('keydown', function(e) {
     e.preventDefault()
     replace_text((t, a, b) => {
       let insert = 'λ'
-      for (let i = 0; i < ranges.length; i++) {
-        const r = ranges[i]
-        if (!r) {
-          break }
-        const [ra, rb, rm] = r
-        if (a >= ra && a < rb) {
-          if (rm === 1) {
-            insert = '\\' }
-          break } }
-        return [t.substring(0, a) + insert + t.substring(b), a + insert.length, a + insert.length] }) }
-  else if (e.key === "Enter" && e.ctrlKey) {
-    e.preventDefault()
-    reset() }
+      const [rl, rr] = ranges(a)
+      const rlk = rl ? rl[2] : null
+      const rrk = rr ? rr[2] : null
+      if (rrk === 'sb' || rlk === 'sb' || rrk === 'ib' || rlk === 'ib') {
+          insert = '\\' }
+      return [t.substring(0, a) + insert + t.substring(b), a + insert.length, a + insert.length] }) }
   else if (e.key === "Enter") {
     e.preventDefault()
-    replace_selection(false, '\n') } })
+    if (e.ctrlKey) {
+      reset() }
+    else {
+      replace_selection(false, '\n') } }
+  else if (e.key === "Enter") {
+    e.preventDefault() } })
 
 system.addEventListener('input', update_highlight)
 
@@ -207,7 +238,7 @@ content => {
       const t = system.childNodes[0]?.textContent || ''
       const [tp, ap, bp] = content(t, 0, t.length)
       const system_text = txt(tp)
-      if (system.childNodes[0]) system.removeChild(system.childNodes[0])
+      while (system.childNodes[0]) system.removeChild(system.childNodes[0])
       system.appendChild(system_text)
       z.removeAllRanges()
       const r = document.createRange()
@@ -221,7 +252,7 @@ content => {
       const b = y.endOffset
       const [tp, ap, bp] = content(t, a, b)
       const system_text = txt(tp)
-      if (system.childNodes[0]) system.removeChild(system.childNodes[0])
+      while (system.childNodes[0]) system.removeChild(system.childNodes[0])
       system.appendChild(system_text)
       z.removeAllRanges()
       const r = document.createRange()
@@ -235,7 +266,6 @@ const replace_selection: (select: boolean, dt: string) => void =
 (select, dt) =>
   replace_text((t, a, b) => [t.substring(0, a) + dt + t.substring(b), a + (select ? 0 : dt.length), a + dt.length])
 
-// Paste fix for contenteditable
 system.addEventListener('paste', function (e) {
   e.preventDefault()
   const d = e.clipboardData
@@ -243,7 +273,7 @@ system.addEventListener('paste', function (e) {
     const dt = d.getData('Text')
     replace_selection(true, dt) } })
 
-system.appendChild(txt(localStorage.getItem('system') || ''))
+system.appendChild(txt(localStorage.getItem('kernel-system') || ''))
 update_highlight()
 
 const entry = element('div', function () {
@@ -265,127 +295,188 @@ const output = element('div', function () {
 document.body.appendChild(output)
 
 output.addEventListener('keydown', async e => {
+  if (e.ctrlKey && e.key == 'v') {
+    return true }
   if (!e.metaKey && !e.altKey) {
-    e.key === 'a'; // converts i.key to single-letter form lmao
-    const handler = getKeyHandler
+    e.preventDefault()
+    e.key === 'a' // converts i.key to single-letter form lmao
+    const handler = wakeHandler
     if (handler) {
-      getKeyHandler = () => {}
-      handler(e) } } })
+      wakeHandler = () => {}
+      handler(make('cns', make('str', 'key'), make('str', e.key))) } }
+  return false })
 
-let getKeyHandler: (e: KeyboardEvent) => void = () => {}
+output.addEventListener('paste', e => {
+  e.preventDefault()
+  const d = e.clipboardData
+  if (d) {
+    const dt = d.getData('Text')
+    const handler = wakeHandler
+    if (handler) {
+      wakeHandler = () => {}
+      handler(make('cns', make('str', 'paste'), make('str', dt))) } } })
+
+let wakeHandler: (e: Graph) => void = () => {}
 let cancel = { value: false }
 
+// result_box.appendChild(txt(pretty(io)(0, true)))
+// const jso: (GraphN | NameN)[] = []
+// const t = graph_to_jso(io, new Map(), jso)
+// io = jso_to_graph(t, [], jso) as Graph
+
 const reset = async () => {
+  const vars: Vars = {}
+  let vars_text = localStorage.getItem('kernel-vars')
+  if (vars_text) {
+      const [vn, q] = JSON.parse(vars_text) as [{ [i: string]: number }, GraphN[]]
+      const p: Graph[] = []
+      for (const i in vn) {
+        try {
+          vars[i] = jso_to_graph(vn[i] as number, p, q) }
+        catch (e) {
+          console.log('error converting vars jso to graph') } } }
+
   output.innerHTML = ''
   const t = system.textContent || ''
-  localStorage.setItem('system', t)
-  getKeyHandler = () => {}
+  localStorage.setItem('kernel-system', t)
+  wakeHandler = () => {}
   cancel.value = true
   cancel = { value: false }
   let program = read(t)
   if (program) {
-    const r = unthunk(evaluate(await doIO(evaluate(program))))
-    if (r.kind !== 'bol' || r.val !== true) {
-      const result_box = document.createElement('div')
-      output.appendChild(result_box)
-      result_box.className = "wb"
-      result_box.appendChild(await to_digraph(r))
-      output.scrollTo(0, output.scrollHeight) } }
+    let io = program
+    const err = () => {
+      output.appendChild(txt(`bad io:\n`))
+      output.appendChild(txt(pretty(io)(0, true)))
+      output.scrollTo(0, output.scrollHeight) }
+    const cancel_me = cancel
+    const queue: Graph[] = []
+    for (;;) {
+      if (cancel_me.value) return null
+      io = unthunk(evaluate(io))
+      if (debug_window && !debug_window.closed) {
+        debug_window.document.body.innerHTML = ''
+        const [head, ...rest] = to_outline(io)
+        const expr = document.createElement('div')
+        debug_window.document.body.appendChild(expr)
+        const expr_line = document.createElement('div')
+        expr.appendChild(expr_line)
+        expr_line.style.whiteSpace = "pre-wrap"
+        expr_line.appendChild(txt(head))
+        for (let i = 0; i < rest.length; i++) {
+          const expr_line = document.createElement('div')
+          expr.appendChild(expr_line)
+          expr_line.style.display = 'flex'
+          const no = document.createElement('div')
+          expr_line.appendChild(no)
+          no.style.captionSide = 'top'
+          no.style.fontWeight = 'bold'
+          no.style.marginRight = "10pt"
+          no.appendChild(txt(`${i}`))
+          const tx = document.createElement('div')
+          tx.style.whiteSpace = "pre-wrap"
+          expr_line.appendChild(tx)
+          tx.appendChild(txt(rest[i] || '')) }
+        await coop() }
+      if (io.kind === 'app') {
+        const l = io.lhs
+        if (l.kind === 'app') {
+          const ll = l.lhs
+          if (ll.kind === 'ref') {
+            if (ll.sym === bindId) {
+              queue.unshift(io.rhs)
+              io = l.rhs
+              continue }
+            else if (ll.sym === setVarId) {
+              const s = flatten_stringlike(l.rhs)
+              if (s == null) return err()
+              vars[s] = unthunk(evaluate(io.rhs))
+              io = make('tru') }
+            else return err() }
+          else return err() }
+        else if (l.kind === 'ref') {
+          if (l.sym == putStrId) {
+            const s = flatten_stringlike(io.rhs)
+            if (s == null) return err()
+            output.appendChild(txt(s))
+            output.scrollTo(0, output.scrollHeight)
+            io = make('tru') }
+          else if (l.sym === returnId) {
+            io = io.rhs }
+          else if (l.sym === getVarId) {
+            const s = flatten_stringlike(io.rhs)
+            if (s == null) return err()
+            const e = vars[s]
+            if (!e) return err()
+            io = e }
+          else if (l.sym === delVarId) {
+            const s = flatten_stringlike(io.rhs)
+            if (s == null) return err()
+            delete vars[s]
+            io = make('tru') }
+          else if (l.sym === readId) {
+            const s = flatten_stringlike(io.rhs)
+            if (s == null) return err()
+            const a = read(s)
+            if (!a) return err()
+            io = make('qot', a) }
+          else if (l.sym === evalId) {
+            const r = unthunk(evaluate(io.rhs))
+            if (r.kind === 'qot') {
+              io = r.body }
+            else return err() }
+          else if (l.sym === printId) {
+            const r = unthunk(evaluate(io.rhs))
+            output.appendChild(txt(pretty(r)(0, true)))
+            output.scrollTo(0, output.scrollHeight)
+            io = make('tru') }
+          else return err() }
+        else return err() }
+      else if (io.kind === 'ref') {
+        if (io.sym === sleepId) {
+          io = (await new Promise<Graph>(cb => wakeHandler = cb)) }
+        else if (io.sym === clearId) {
+          output.innerText = ''
+          io = make('tru') }
+        else if (io.sym === coopId) {
+          await coop()
+          io = make('tru') }
+        else return err() }
+      else return err()
+      const h = queue.shift()
+      if (!h) break
+      io = make('app', h, io) }
+    const vn: VarsN = {}
+    const p = new Map<Graph, number>()
+    const q: GraphN[] = []
+    for (const i in vars) {
+      vn[i] = graph_to_jso(vars[i] as Graph, p, q) }
+    localStorage.setItem('kernel-vars', JSON.stringify([vn, q]))
+    io = unthunk(evaluate(io))
+    const result_box = document.createElement('div')
+    output.appendChild(result_box)
+    result_box.className = "wb"
+    result_box.appendChild(txt(pretty(io)(0, true)))
+    // const vars_box = document.createElement('div')
+    // output.appendChild(vars_box)
+    // vars_box.appendChild(await to_digraph('result', vars))
+    output.scrollTo(0, output.scrollHeight) }
   else {
     output.appendChild(txt(`syntax error\n`))
     output.scrollTo(0, output.scrollHeight)
   } }
 
-const doPutStr: (e: Graph) => void = e => {
-  let parts = [e]
-  for (;;) {
-    let [a, ...rest] = parts
-    if (!a) return
-    a = evaluate(a)
-    if (a.kind === 'bol') {
-      parts = rest }
-    else if (a.kind === 'str') {
-      parts = rest
-      output.appendChild(txt(a.val))
-      output.scrollTo(0, output.scrollHeight) }
-    else {
-      const ap = reduce(make('app', a, lib.const))
-      if (!ap) return
-      const bp = make('app', a, lib.false)
-      if (!bp) return
-      parts = [ap, bp, ...rest] } } }
-
-const scheme = window.matchMedia('(prefers-color-scheme: dark)').matches;
-let [backgroundColor, foregroundColor] = [scheme ? "black" : "white", scheme ? "white" : "black"];
-
-const digraph_preamble = `nodesep=0.3;bgcolor="${backgroundColor}";\
-node[rankjustify=min,fontsize="22",color="${foregroundColor}",fontcolor="${foregroundColor}",fontname="CMU Typewriter Text"];\
-edge[arrowhead=none,fontsize="22",color="${foregroundColor}",fontname="CMU Typewriter Text"];\
-{rank=min;start[label="",style=filled,color="${foregroundColor}",shape=diamond,fixedsize=true,width=0.5,height=0.5]};start->0`;
-
-const to_digraph_document = (title: string, s: string) =>
-`digraph ${title}{${digraph_preamble};${s}}`
-
-const to_digraph: (e: Graph) => Promise<SVGSVGElement> =
-async e => {
-  const src = to_digraph_document("stateGraph",
-  to_digraph_elements(e, true))
-  const viz = new Viz()
-  const img = await viz.renderSVGElement(src)
-  img.style.verticalAlign = "top"
-  const rect = img.viewBox.baseVal
-  img.setAttribute('width', `${rect.width * 0.5}px`)
-  img.setAttribute('height', `${rect.height * 0.5}px`)
-  return img }
-
+const delVarId = sym('del-var')
+const setVarId = sym('set-var')
+const getVarId = sym('get-var')
 const putStrId = sym('put-string')
-const getKeyId = sym('get-key')
+const printId = sym('print')
+const sleepId = sym('sleep')
 const bindId = sym('bind')
 const returnId = sym('return')
 const clearId = sym('clear')
-
-const doIO: (e: Graph) => Promise<Graph> = async e => {
-const abort = cancel
-const f = async (io: Graph) => {
-for (;;) {
-  if (abort.value) return lib.true
-  io = unthunk(io)
-  const err: () => Promise<Graph> = async () => {
-    output.appendChild(txt(`bad io:\n`))
-    output.appendChild(await to_digraph(io))
-    output.scrollTo(0, output.scrollHeight)
-    return lib.true }
-  if (io.kind === 'app') {
-    const l = io.lhs
-    if (l.kind === 'app') {
-      const ll = l.lhs
-      if (ll.kind === 'ref') {
-        if (ll.sym === bindId) {
-          io = evaluate(make('app', io.rhs, await f(evaluate(l.rhs)))) }
-        else return await err() }
-      else return await err() }
-    else if (l.kind === 'ref') {
-      if (l.sym == putStrId) {
-        doPutStr(io.rhs)
-        return lib.true }
-      else if (l.sym === returnId) {
-        return io.rhs }
-      else return await err() }
-    else return await err() }
-  else if (io.kind === 'ref') {
-    if (io.sym === getKeyId) {
-      return makestr((await new Promise<KeyboardEvent>(cb => getKeyHandler = cb)).key) }
-    else if (io.sym === clearId) {
-      output.innerText = ''
-      return lib.true }
-    else return await err() }
-  else return await err()
-  if (debugWindow && !debugWindow.closed) {
-    debugWindow.document.body.appendChild(await to_digraph(unthunk(io))) }
-  await new Promise(cb => window.setTimeout(cb, 0))} }
-if (debugWindow && !debugWindow.closed) {
-  debugWindow.document.body.innerHTML = '' }
-const g = await f(e)
-return g }
+const coopId = sym('coop')
+const readId = sym('read')
+const evalId = sym('eval')
 
 })()

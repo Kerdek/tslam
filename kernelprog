@@ -1,11 +1,6 @@
-# let combinator #
 (λa.a a) (λx f.f x) λlet.
-
-# recursive combinator #
-let (λf.(λx.f $ x x) (λx.f $ x x)) λrec.
-
-# lib #
-let (λa b.a) λconst.
+let (λf x.f $ x x) λdga.
+let (λf.dga true (dga f)) λrec.
 let (let const) λcar.
 let (let false) λcdr.
 let (λf g x.f $ g x) λcompose.
@@ -15,12 +10,12 @@ let (λa b.a + b) λadd.
 let (λa b.a * b) λmul.
 let (λa b.a == b) λeq.
 let (const false) λis-zero.
-let (compose (let const) compose) λif.
-let (let false) λnot.
-let not λor. #they're the same#
-let (pair false (const false)) λand.
+let (compose car compose) λif.
+let cdr λnot.
+let cdr λor. #they're the same#
+let (pair false is-zero) λand.
 let (compose pair const) λcond.
-let (pair (const $ const $ const false) true) λempty.
+let (pair (const $ const $ is-zero) true) λempty.
 let (compose if bind) λdo.
 let (return true) λpass.
 
@@ -32,7 +27,7 @@ let (λb.rec λf l op.if (empty l) b (op (car l) (f (cdr l)))) λwalk.
 let (rec λf n l.n (λp x.f p (cdr l)) (car l)) λelem.
 
 let (λl.foldr (λa b x.bind (x a) λz.b (let z)) (let return) l const) λlist-bind.
-let (foldr do (return true)) λlist-do.
+let (foldr do pass) λlist-do.
 let (foldl push true) λlist-tuple.
 let (foldl pair []) λreverse.
 
@@ -46,12 +41,15 @@ let (walk _ integers (let 0 $ rec λf n a b.n : b (f (a + n)))) λtriangle-numbe
 let (
   let [] $
   rec λf s.
-  bind get-key λk.
-  if (k == "Enter") (
-    do (put-string "\n") $
-    return (reverse s)) $
-  do (put-string k) $
-  f (k : s)
+  bind sleep $
+  let λe k.
+  if (e == "key") (
+    if (k == "Enter") (
+      do (put-string "\n") $
+      return (reverse s)) $
+    do (put-string k) $
+    f (k : s)) $
+  f s
 ) λread-line.
 
 let (
