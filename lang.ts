@@ -26,7 +26,7 @@ const token = (s: [string]) => {
   (ws => ws == undefined ? null : (s[0] = s[0].slice(ws[0].length), ws[0]))(s[0].match(t))
   return {
     ws: take(/^(\s|#([^#\\]|\\.)*#?)*/),
-    lm: take(/^[\\λ]/), ex: take(/^∃/),
+    lm: take(/^(\\|λ)/), ex: take(/^∃/),
     eq: take(/^=/),
     ee: take(/^==/), ne: take(/^!=/),
     ge: take(/^>=/), le: take(/^<=/), gt: take(/^>/), lt: take(/^</),
@@ -60,14 +60,14 @@ const read_c: (tokens: (tk: TokenTable, expression: ReadP) => [[boolean, ...[Tok
       const c = tk[token]()
       if (c) return p(c) }
     return undefined }
-    const application = () => {
-      let lhs = prefix_primary()
-      for (;;) {
-        if (!lhs) return null
-        const rhs = prefix_primary()
-        if (rhs === undefined) return lhs
-        if (!rhs) return null
-        lhs = make('app', lhs, rhs) } }
+  const application = () => {
+    let lhs = prefix_primary()
+    for (;;) {
+      if (!lhs) return null
+      const rhs = prefix_primary()
+      if (rhs === undefined) return lhs
+      if (!rhs) return null
+      lhs = make('app', lhs, rhs) } }
   type Binop = (next: ReadP, ...tks: [TokenKind, TermKind][]) => ReadP
   const binop_right: Binop =
   (next, ...tks) => () => {
@@ -126,6 +126,7 @@ export const read = read_c((tk, expression) => {
   const universal = () => {
     const readu: ReadP = () => (tk.ws(),
       tk.dt() ? expression() :
+      tk.as() ? (id => !id ? null : (e => !e ? null : make('rec', sym(id), e))(readu()))(tk.id()) :
       (id => !id ? null : (e => !e ? null : make('uni', sym(id), e))(readu()))(tk.id()))
     return readu() }
   const existential = () => {
@@ -248,7 +249,7 @@ text => {
           tokens(g('const'), 'nm')() ||
           tokens(g('quant'), 'ex', 'sq', 'lm')() ||
           tokens(g('punct'), 'ee', 'eq', 'ne', 'ge', 'le', 'gt', 'lt', 'pl', 'hy', 'as', 'so', 'pc', 'ds', 'sc', 'cn', 'dt', 'cm')()) {
-            continue }
+          continue }
         c = tks.id()
         if (c) {
           const cls = c == 'true' || c == 'false' || c == 'const' ? 'key' : 'id'
@@ -336,6 +337,10 @@ export const pretty: (e: Graph) => Printer = (() => {
           b = b.body }
         else break }
       return quantifier(`${qt}.`)(b) },
+    rec: e => {
+      let qt = `φ${e.sym.id}`
+      let b: Graph & { body: Graph } = e
+      return quantifier(`${qt}.`)(b) },
     nym: e => () => e.sym.id,
     ref: e => () => e.sym.id,
     mem: passthru,
@@ -382,7 +387,7 @@ async (t, v) => {
     nodes_token.set(e, t)
     e.kind === 'ext' ?
       (walk_name_nodes(e.name), walk_graph_nodes(e.body)) :
-    e.kind === 'mem' || e.kind === 'nym' || e.kind === 'uni' || e.kind === 'qot' ||
+    e.kind === 'mem' || e.kind === 'nym' || e.kind === 'uni' || e.kind === 'rec' || e.kind === 'qot' ||
     e.kind === 'jst' || e.kind === 'thk' || e.kind === 'fmt' || e.kind === 'itp' ?
       walk_graph_nodes(e.body) :
     e.kind === 'cns' ?
@@ -405,12 +410,12 @@ async (t, v) => {
       e.kind === 'add' || e.kind === 'sub' || e.kind === 'mul' || e.kind === 'div' || e.kind === 'mod' ||
       e.kind === 'itp' || e.kind === 'fmt' ?
         'fixedsize=true,width=0.5,height=0.5,' :
-      e.kind === 'jst' || e.kind === 'nym' || e.kind === 'uni' || e.kind === 'cst' || e.kind === 'ref' || e.kind === 'str' ||
+      e.kind === 'jst' || e.kind === 'nym' || e.kind === 'uni' || e.kind === 'rec' || e.kind === 'cst' || e.kind === 'ref' || e.kind === 'str' ||
       e.kind === 'num' || e.kind === 'fls' || e.kind === 'tru' ? '' :
       never(e) }shape=${
       e.kind === 'nym' ? 'diamond' :
       e.kind === 'ext' ? 'box' :
-      e.kind === 'uni' ? 'invtriangle' :
+      e.kind === 'uni' || e.kind === 'rec' ? 'invtriangle' :
       e.kind === 'thk' || e.kind === 'mem' || e.kind === 'app' ||
       e.kind === 'cns' || e.kind === 'ceq' || e.kind === 'cne' || e.kind === 'cgt' ||
       e.kind === 'clt' || e.kind === 'cge' || e.kind === 'cle' || e.kind === 'qot' ||
@@ -428,6 +433,7 @@ async (t, v) => {
       e.kind === 'nym' ? e.sym.id :
       e.kind === 'cst' ? 'const' :
       e.kind === 'jst' ? 'const' :
+      e.kind === 'rec' ? `*${e.sym.id}` :
       e.kind === 'uni' ? e.sym.id :
       e.kind === 'cns' ? ':' :
       e.kind === 'ceq' ? '==' :
@@ -456,7 +462,7 @@ async (t, v) => {
     e.kind === 'cgt' || e.kind === 'clt' || e.kind === 'cge' || e.kind === 'cle' ||
     e.kind === 'add' || e.kind === 'sub' || e.kind === 'mul' ||
     e.kind === 'div' || e.kind === 'mod' ? out.push(`${t}->${nodes_token.get(e.lhs)};${t}->${nodes_token.get(e.rhs)}[dir=back]`):
-    e.kind === 'thk' || e.kind === 'uni' || e.kind === 'itp' || e.kind === 'fmt' ||
+    e.kind === 'thk' || e.kind === 'uni' || e.kind === 'rec' || e.kind === 'itp' || e.kind === 'fmt' ||
     e.kind === 'mem' || e.kind === 'nym' || e.kind === 'jst' ||
     e.kind === 'qot' ? out.push(`${t}->${nodes_token.get(e.body)}`) :
     e.kind === 'cst' || e.kind === 'ref' || e.kind === 'str' || e.kind === 'num' ||
@@ -526,7 +532,7 @@ e => {
     const nop: (e: Graph) => void = () => {}
     tbl({
       ext: e => (walk_name_refcount(e.name), walk_graph_refcount(e.body)),
-      mem: unary, nym: unary, uni: unary, qot: unary,
+      mem: unary, nym: unary, uni: unary, rec: unary, qot: unary,
       jst: unary, thk: unary, fmt: unary, itp: unary,
       cns: binary, app: binary, ceq: binary, cne: binary,
       cgt: binary, clt: binary, cge: binary, cle: binary,
@@ -551,6 +557,7 @@ e => {
     nym: e => (b => (_pr, rm) => `${!rm ? '(' : ''}@${b(0, true)}${!rm ? ')' : ''}`)(walk(e.body)),
     ext: e => ((n, b) => (_pr, rm) => `${!rm ? '(' : ''}∃${n(0, true)}.${b(0, true)}${!rm ? ')' : ''}`)(walk_name(e.name), walk(e.body)),
     uni: e => (b => (_pr, rm) => `${!rm ? '(' : ''}λ${e.sym.id}.${b(0, true)}${!rm ? ')' : ''}`)(walk(e.body)),
+    rec: e => (b => (_pr, rm) => `${!rm ? '(' : ''}φ${e.sym.id}.${b(0, true)}${!rm ? ')' : ''}`)(walk(e.body)),
     app: binop(10, ' ', false),
     jst: e => (b => (pr, rm) => `${pr > 10 ? '(' : ''}const ${b(11, rm)}${pr > 10 ? ')' : ''}`)(walk(e.body)),
     cns: binop(5, ' : ', true), ceq: binop(3, ' == ', true),
@@ -614,6 +621,7 @@ export const jso_to_graph: (i: number, p: Graph[], q: GraphN[]) => Graph =
     ext: e => make('ext', walk_name(e.name), walk_graph(e.body)),
     nym: e => make('nym', sym(e.sym), walk_graph(e.body)),
     uni: e => make('uni', sym(e.sym), walk_graph(e.body)),
+    rec: e => make('rec', sym(e.sym), walk_graph(e.body)),
     ref: e => make('ref', sym(e.sym)),
     str: e => make(e.kind, e.val),
     num: e => make(e.kind, e.val),
@@ -648,11 +656,12 @@ export const graph_to_jso: (e: Graph, p: Map<Graph, number>, q: GraphN[]) => num
   const binary: (e: Term[BinaryKind]) => GraphN = e => maken(e.kind, walk_graph(e.lhs), walk_graph(e.rhs))
   const table = tbl<GraphN>({
     thk: () => { throw 0 }, // insupportable
-    mem: e => ({ kind: 'mem', body: walk_graph(e.body) }),
-    nym: e => ({ kind: 'nym', sym: e.sym.id, body: walk_graph(e.body) }),
-    ext: e => ({ kind: 'ext', name: walk_name(e.name), body: walk_graph(e.body) }),
-    uni: e => ({ kind: 'uni', sym: e.sym.id, body: walk_graph(e.body) }),
-    ref: e => ({ kind: 'ref', sym: e.sym.id }),
+    mem: e => maken('mem', walk_graph(e.body)),
+    nym: e => maken('nym', e.sym.id, walk_graph(e.body)),
+    ext: e => maken('ext', walk_name(e.name), walk_graph(e.body)),
+    uni: e => maken('uni', e.sym.id, walk_graph(e.body)),
+    rec: e => maken('rec', e.sym.id, walk_graph(e.body)),
+    ref: e => maken('ref', e.sym.id),
     app: binary, cns: binary, ceq: binary, cne: binary,
     cgt: binary, clt: binary, cge: binary, cle: binary,
     add: binary, sub: binary, mul: binary, div: binary, mod: binary,

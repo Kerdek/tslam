@@ -25,6 +25,7 @@ const fields = (() => {
   ext: ['name', 'body'],
   nym: ['sym', 'body'],
   uni: ['sym', 'body'],
+  rec: ['sym', 'body'],
   ref: ['sym'],
   app: binary, cns: binary,
   ceq: binary, cne: binary,
@@ -51,6 +52,7 @@ type IData = {
   ext: [ITerm['nym'], IGraph]
   nym: [ISymbol, IGraph]
   uni: [ISymbol, IGraph]
+  rec: [ISymbol, IGraph]
   app: IBinary, cns: IBinary, ceq: IBinary, cne: IBinary
   cgt: IBinary, clt: IBinary, cge: IBinary, cle: IBinary
   add: IBinary, sub: IBinary, mul: IBinary, div: IBinary, mod: IBinary
@@ -113,14 +115,46 @@ export type UnaryKind = 'itp' | 'fmt' | 'jst' | 'qot'
 export type BinaryKind = 'app' | 'cns' | 'ceq' | 'cne' | 'cgt' | 'clt' | 'cge' | 'cle' | 'add' | 'sub' | 'mul' | 'div' | 'mod'
 
 export const tblt: <P extends Plan, F>(o: { [K in TermKind]: (e: TermT<P>[K]) => F }) => <K extends TermKind>(e: TermT<P>[K]) => F = o => e => o[e.kind](e)
-export const tbl: <F>(o: { [K in TermKind]: (e: TermT<Plain>[K]) => F }) => <K extends TermKind>(e: TermT<Plain>[K]) => F = o => e => o[e.kind](e)
+export const tbl: <F>(o: { [K in TermKind]: (e: TermT<Plain>[K]) => F }) => <K extends TermKind>(e: TermT<Plain>[K]) => F = o => e => { try { return o[e.kind](e) } catch (e) { throw 0; } }
 export const tbln: <F>(o: { [K in TermKind]: (e: TermT<JSO>[K]) => F }) => <K extends TermKind>(e: TermT<JSO>[K]) => F = o => e => o[e.kind](e)
 
 export const maket: <P extends Plan, K extends TermKind>(kind: K, ...data: DataT<P>[K]) => TermT<P>[K] =
 (kind, ...data) => ({ kind, ...Object.fromEntries(data.map((e, i) => [fields[kind][i], e])) })
 
-export const make: <K extends TermKind>(kind: K, ...data: DataT<Plain>[K]) => Term[K] = maket
-export const maken: <K extends TermKind>(kind: K, ...data: DataT<JSO>[K]) => TermN[K] = maket
+const equivs = new Map<TermKind, Map<any, Map<any, Graph>>>()
+
+export const make: <K extends TermKind>(kind: K, ...data: DataT<Plain>[K]) => Term[K] =
+(kind, ...data) => {
+  {
+    let k = equivs.get(kind)
+    if (k !== undefined) {
+      if (data[0] === undefined) return k
+      let a = k.get(data[0])
+      if (a !== undefined) {
+        if (data[1] === undefined) return a
+        const b = a.get(data[1])
+        if (b !== undefined) {
+          return b } } } }
+  const e = ({ kind, ...Object.fromEntries(data.map((e, i) => [fields[kind][i], e])) })
+  if (data[0] === undefined) {
+    equivs.set(kind, e)
+    return e }
+  let k = equivs.get(kind)
+  if (k === undefined) {
+    k = new Map()
+    equivs.set(kind, k) }
+  if (data[1] === undefined) {
+    k.set(data[0], e)
+    return e }
+  let a = k.get(data[0])
+  if (a === undefined) {
+    a = new Map()
+    k.set(data[0], a) }
+  a.set(data[1], e)
+  return e }
+
+export const maken: <K extends TermKind>(kind: K, ...data: DataT<JSO>[K]) => TermN[K] =
+(kind, ...data) => ({ kind, ...Object.fromEntries(data.map((e, i) => [fields[kind][i], e])) })
 
 const reassign: <T extends Graph, U extends Graph>(e: T, r: U) => U =
 (e, r) => {
@@ -205,7 +239,7 @@ e => {
     qot: lhs => {
       const car = () => apps(e.rhs, make('cst'))
       const cdr = () => { e.rhs = apps(e.rhs, make('fls')) }
-      const universal: Morphism<'uni'> = a =>
+      const universal: Morphism<'uni' | 'rec'> = a =>
         literal(make('uni', a.sym, make('qot', a.body)))
       const literal: Morphism<TermKind> = a =>
         reassign(e, apps(car(), a))
@@ -226,6 +260,7 @@ e => {
         cdr()
         return null }
       return part('uni', universal) ||
+      part('rec', universal) ||
       part('app', binary) || part('cns', binary) ||
       part('ceq', binary) || part('cne', binary) ||
       part('cgt', binary) || part('clt', binary) ||
@@ -235,6 +270,7 @@ e => {
       part('qot', unary) || part('jst', unary) ||
       part('ref', literal) || part('str', literal) || part('num', literal) ||
       part('fls', nullary) || part('tru', nullary) || part('cst', nullary) },
+    rec: no,
     fmt: no, itp: no, thk: no, ext: no,
     mem: no, nym: no, app: no, ceq: no,
     cne: no, cgt: no, clt: no, cge: no,
@@ -288,6 +324,14 @@ e => {
     e.body = e.body.body }
   return e.body }
 
+const reduce_rec: PMorphism<'rec'> =
+e => {
+  while (e.body.kind === 'mem' || e.body.kind === 'nym') {
+    e.body = e.body.body }
+  const a = make('ext', make('nym', e.sym, make('fls')), e.body)
+  a.name.body = a
+  return a }
+
 const reduce_ext: PMorphism<'ext'> =
 e => {
   const re: Morphism<TermKind> = a => make('ext', e.name, a)
@@ -313,6 +357,9 @@ e => {
     uni: body => e.name.sym === body.sym ?
       redirect(e, body) :
       reassign(e, make('uni', body.sym, make('ext', e.name, body.body))),
+    rec: body => e.name.sym === body.sym ?
+      redirect(e, body) :
+      reassign(e, make('rec', body.sym, make('ext', e.name, body.body))),
     ref: body => e.name.sym === body.sym ?
       redirect(e, e.name) :
       reassign(e, body), // existential disappears
@@ -395,6 +442,7 @@ e => {
     jst: () => `[jst]`,
     cst: () => `[cst]`,
     uni: () => `[uni]`,
+    rec: () => `[rec]`,
     cns: () => `[cns]`,
     qot: () => `[qot]`,
     thk: no,
@@ -446,6 +494,7 @@ return tbl({
   fmt: reduce_fmt,
   mem: reduce_mem,
   nym: reduce_nym,
+  rec: reduce_rec,
   ceq: reduce_compare((a, b) => a === b),
   cne: reduce_compare((a, b) => a !== b),
   cgt: reduce_compare((a, b) => a > b),

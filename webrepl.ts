@@ -101,7 +101,6 @@ style_rule(`svg .node.start text {
 const txt: (x: string) => Text = x => document.createTextNode(x)
 const cooperate = () => new Promise(r => setTimeout(r, 0))
 
-
 const intro = document.createElement('div')
 document.body.appendChild(intro)
 intro.className = "hlquant"
@@ -457,7 +456,6 @@ const dispatch = async () => {
   update_highlight()
   const output_segment = document.createElement('div')
   output.appendChild(output_segment)
-  try {
   for (;;) {
     if (!keep_steps.checked) output_segment.innerHTML = ''
     const output_element = document.createElement('div')
@@ -514,9 +512,6 @@ const dispatch = async () => {
     if (!next) {
       return }
     else state = next } }
-    catch (e) {
-      if (e instanceof Error) {
-        output_segment.append(txt(e.toString())) } } }
 
 set_prompt('#')
 let dispatch_cb: DispatchCB = e => e
