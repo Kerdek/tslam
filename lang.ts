@@ -126,7 +126,6 @@ export const read = read_c((tk, expression) => {
   const universal = () => {
     const readu: ReadP = () => (tk.ws(),
       tk.dt() ? expression() :
-      tk.as() ? (id => !id ? null : (e => !e ? null : make('rec', sym(id), e))(readu()))(tk.id()) :
       (id => !id ? null : (e => !e ? null : make('uni', sym(id), e))(readu()))(tk.id()))
     return readu() }
   const existential = () => {
@@ -183,9 +182,10 @@ export const read = read_c((tk, expression) => {
   const predefined = narrow({
     true: 'tru',
     false: 'fls',
-    const: 'cst' })
+    const: 'cst',
+    rec: 'rec' })
   const identifier: (c: string) => Graph = (c: keyof typeof predefined | string) => {
-    if (c === 'true' || c === 'false' || c === 'const') {
+    if (c === 'true' || c === 'false' || c === 'const' || c === 'rec') {
       const l = predefined[c]
       return make(l) }
     return make('ref', sym(c)) }
@@ -252,7 +252,7 @@ text => {
           continue }
         c = tks.id()
         if (c) {
-          const cls = c == 'true' || c == 'false' || c == 'const' ? 'key' : 'id'
+          const cls = c == 'true' || c == 'false' || c == 'const' || c == 'rec' ? 'key' : 'id'
           p.push(`<span class="hl${cls}">${c}</span>`)
           cd('id', c)
           continue }
@@ -337,10 +337,7 @@ export const pretty: (e: Graph) => Printer = (() => {
           b = b.body }
         else break }
       return quantifier(`${qt}.`)(b) },
-    rec: e => {
-      let qt = `φ${e.sym.id}`
-      let b: Graph & { body: Graph } = e
-      return quantifier(`${qt}.`)(b) },
+    rec: exact('rec'),
     nym: e => () => e.sym.id,
     ref: e => () => e.sym.id,
     mem: passthru,
@@ -374,7 +371,7 @@ export const to_digraph: (title: string, v: Vars) => Promise<SVGSVGElement> =
 async (t, v) => {
   const walk_name_nodes: (e: Term['nym']) => void = e => {
     let t = nodes_token.get(e)
-    if (t) return
+    if (t !== undefined) return
     t = counter++
     nodes_token.set(e, t)
     walk_graph_nodes(e.body)
@@ -382,12 +379,12 @@ async (t, v) => {
     out.push(`${t}->${nodes_token.get(e.body)}`) }
   const walk_graph_nodes: (e: Graph) => void = e => {
     let t = nodes_token.get(e)
-    if (t) return
+    if (t !== undefined) return
     t = counter++
     nodes_token.set(e, t)
     e.kind === 'ext' ?
       (walk_name_nodes(e.name), walk_graph_nodes(e.body)) :
-    e.kind === 'mem' || e.kind === 'nym' || e.kind === 'uni' || e.kind === 'rec' || e.kind === 'qot' ||
+    e.kind === 'mem' || e.kind === 'nym' || e.kind === 'uni' || e.kind === 'qot' ||
     e.kind === 'jst' || e.kind === 'thk' || e.kind === 'fmt' || e.kind === 'itp' ?
       walk_graph_nodes(e.body) :
     e.kind === 'cns' ?
@@ -397,7 +394,7 @@ async (t, v) => {
     e.kind === 'sub' || e.kind === 'mul' || e.kind === 'div' || e.kind === 'mod' ?
       (walk_graph_nodes(e.lhs), walk_graph_nodes(e.rhs)) :
     e.kind === 'cst' || e.kind === 'ref' || e.kind === 'str' || e.kind === 'num' ||
-    e.kind === 'fls' || e.kind === 'tru' ?
+    e.kind === 'fls' || e.kind === 'tru' || e.kind === 'rec' ?
       void 0 :
     never(e)
     out.push(`${t}[${
@@ -415,7 +412,7 @@ async (t, v) => {
       never(e) }shape=${
       e.kind === 'nym' ? 'diamond' :
       e.kind === 'ext' ? 'box' :
-      e.kind === 'uni' || e.kind === 'rec' ? 'invtriangle' :
+      e.kind === 'uni' ? 'invtriangle' :
       e.kind === 'thk' || e.kind === 'mem' || e.kind === 'app' ||
       e.kind === 'cns' || e.kind === 'ceq' || e.kind === 'cne' || e.kind === 'cgt' ||
       e.kind === 'clt' || e.kind === 'cge' || e.kind === 'cle' || e.kind === 'qot' ||
@@ -423,7 +420,7 @@ async (t, v) => {
       e.kind === 'div' || e.kind === 'mod' || e.kind === 'itp' ||
       e.kind === 'fmt' ? 'circle' :
       e.kind === 'cst' || e.kind === 'ref' || e.kind === 'str' || e.kind === 'num' ||
-      e.kind === 'jst' || e.kind === 'fls' || e.kind === 'tru' ? 'plaintext' :
+      e.kind === 'jst' || e.kind === 'fls' || e.kind === 'tru' || e.kind === 'rec' ? 'plaintext' :
       never(e)
     },label="${
       e.kind === 'thk' ? ';' :
@@ -433,7 +430,7 @@ async (t, v) => {
       e.kind === 'nym' ? e.sym.id :
       e.kind === 'cst' ? 'const' :
       e.kind === 'jst' ? 'const' :
-      e.kind === 'rec' ? `*${e.sym.id}` :
+      e.kind === 'rec' ? `rec` :
       e.kind === 'uni' ? e.sym.id :
       e.kind === 'cns' ? ':' :
       e.kind === 'ceq' ? '==' :
@@ -462,11 +459,11 @@ async (t, v) => {
     e.kind === 'cgt' || e.kind === 'clt' || e.kind === 'cge' || e.kind === 'cle' ||
     e.kind === 'add' || e.kind === 'sub' || e.kind === 'mul' ||
     e.kind === 'div' || e.kind === 'mod' ? out.push(`${t}->${nodes_token.get(e.lhs)};${t}->${nodes_token.get(e.rhs)}[dir=back]`):
-    e.kind === 'thk' || e.kind === 'uni' || e.kind === 'rec' || e.kind === 'itp' || e.kind === 'fmt' ||
+    e.kind === 'thk' || e.kind === 'uni' || e.kind === 'itp' || e.kind === 'fmt' ||
     e.kind === 'mem' || e.kind === 'nym' || e.kind === 'jst' ||
     e.kind === 'qot' ? out.push(`${t}->${nodes_token.get(e.body)}`) :
     e.kind === 'cst' || e.kind === 'ref' || e.kind === 'str' || e.kind === 'num' ||
-    e.kind === 'fls' || e.kind === 'tru' ? void 0 :
+    e.kind === 'rec' || e.kind === 'fls' || e.kind === 'tru' ? void 0 :
     never(e) }
   let counter = 0
   let out: string[] = []
@@ -532,12 +529,12 @@ e => {
     const nop: (e: Graph) => void = () => {}
     tbl({
       ext: e => (walk_name_refcount(e.name), walk_graph_refcount(e.body)),
-      mem: unary, nym: unary, uni: unary, rec: unary, qot: unary,
+      mem: unary, nym: unary, uni: unary, qot: unary,
       jst: unary, thk: unary, fmt: unary, itp: unary,
       cns: binary, app: binary, ceq: binary, cne: binary,
       cgt: binary, clt: binary, cge: binary, cle: binary,
       add: binary, sub: binary, mul: binary, div: binary, mod: binary,
-      cst: nop, ref: nop,
+      cst: nop, ref: nop, rec: nop,
       str: nop, num: nop,
       fls: nop, tru: nop })(e) }
   walk_graph_refcount(e)
@@ -557,7 +554,7 @@ e => {
     nym: e => (b => (_pr, rm) => `${!rm ? '(' : ''}@${b(0, true)}${!rm ? ')' : ''}`)(walk(e.body)),
     ext: e => ((n, b) => (_pr, rm) => `${!rm ? '(' : ''}∃${n(0, true)}.${b(0, true)}${!rm ? ')' : ''}`)(walk_name(e.name), walk(e.body)),
     uni: e => (b => (_pr, rm) => `${!rm ? '(' : ''}λ${e.sym.id}.${b(0, true)}${!rm ? ')' : ''}`)(walk(e.body)),
-    rec: e => (b => (_pr, rm) => `${!rm ? '(' : ''}φ${e.sym.id}.${b(0, true)}${!rm ? ')' : ''}`)(walk(e.body)),
+    rec: exact('rec'),
     app: binop(10, ' ', false),
     jst: e => (b => (pr, rm) => `${pr > 10 ? '(' : ''}const ${b(11, rm)}${pr > 10 ? ')' : ''}`)(walk(e.body)),
     cns: binop(5, ' : ', true), ceq: binop(3, ' == ', true),
@@ -621,7 +618,7 @@ export const jso_to_graph: (i: number, p: Graph[], q: GraphN[]) => Graph =
     ext: e => make('ext', walk_name(e.name), walk_graph(e.body)),
     nym: e => make('nym', sym(e.sym), walk_graph(e.body)),
     uni: e => make('uni', sym(e.sym), walk_graph(e.body)),
-    rec: e => make('rec', sym(e.sym), walk_graph(e.body)),
+    rec: nullary,
     ref: e => make('ref', sym(e.sym)),
     str: e => make(e.kind, e.val),
     num: e => make(e.kind, e.val),
@@ -660,7 +657,7 @@ export const graph_to_jso: (e: Graph, p: Map<Graph, number>, q: GraphN[]) => num
     nym: e => maken('nym', e.sym.id, walk_graph(e.body)),
     ext: e => maken('ext', walk_name(e.name), walk_graph(e.body)),
     uni: e => maken('uni', e.sym.id, walk_graph(e.body)),
-    rec: e => maken('rec', e.sym.id, walk_graph(e.body)),
+    rec: nullary,
     ref: e => maken('ref', e.sym.id),
     app: binary, cns: binary, ceq: binary, cne: binary,
     cgt: binary, clt: binary, cge: binary, cle: binary,

@@ -20,61 +20,50 @@ const fields = (() => {
   const unary = narrow(['body'])
   const nullary = narrow([])
   const literal = narrow(['val'])
+  const quantifier = narrow(['sym', 'body'])
+  const symbol = narrow(['sym'])
   return narrow({
   thk: ['body', 'next'],
-  ext: ['name', 'body'],
-  nym: ['sym', 'body'],
-  uni: ['sym', 'body'],
-  rec: ['sym', 'body'],
-  ref: ['sym'],
+  ext: ['name', 'body'], mem: unary, nym: quantifier,
+  uni: quantifier,
+  ref: symbol,
   app: binary, cns: binary,
   ceq: binary, cne: binary,
   cgt: binary, clt: binary,
   cge: binary, cle: binary,
   add: binary, sub: binary,
   mul: binary, div: binary, mod: binary,
-  mem: unary, itp: unary,
-  fmt: unary, qot: unary,
-  jst: unary,
-  str: literal, num: literal,
-  fls: nullary, tru: nullary, cst: nullary }) })()
+  itp: unary, fmt: unary, qot: unary, jst: unary,
+  fls: nullary, tru: nullary, cst: nullary, rec: nullary,
+  str: literal, num: literal }) })()
 
-type ITerm = { [K in TermKind]: ['term', K] }
-type IGraph = ITerm[TermKind]
-type ISymbol = ['sym']
-type ILiteral<T> = ['lit', T]
-
-type IBinary = [IGraph, IGraph]
-type IUnary = [IGraph]
+type IBinary = [['term', TermKind], ['term', TermKind]]
+type IUnary = [['term', TermKind]]
 type INullary = []
 type IData = {
-  thk: [IGraph, ILiteral<(e: Graph, fail: boolean) => Graph | null>]
-  ext: [ITerm['nym'], IGraph]
-  nym: [ISymbol, IGraph]
-  uni: [ISymbol, IGraph]
-  rec: [ISymbol, IGraph]
+  thk: [['term', TermKind], ['lit', (e: Graph, fail: boolean) => Graph | null]]
+  ext: [['term', 'nym'], ['term', TermKind]], mem: IUnary, nym: [['sym'], ['term', TermKind]]
+  uni: [['sym'], ['term', TermKind]]
+  ref: [['sym']]
   app: IBinary, cns: IBinary, ceq: IBinary, cne: IBinary
   cgt: IBinary, clt: IBinary, cge: IBinary, cle: IBinary
   add: IBinary, sub: IBinary, mul: IBinary, div: IBinary, mod: IBinary
-  mem: IUnary, itp: IUnary, fmt: IUnary, qot: IUnary
-  jst: IUnary
-  ref: [ISymbol]
-  str: [ILiteral<string>]
-  num: [ILiteral<number>]
-  tru: INullary, fls: INullary,cst: INullary }
+  itp: IUnary, fmt: IUnary, qot: IUnary, jst: IUnary
+  tru: INullary, fls: INullary, rec: INullary, cst: INullary
+  str: [['lit', string]], num: [['lit', number]] }
 
 type Fields = typeof fields
 export type TermKind = keyof Fields & keyof IData
 
-export type Plain = { term: { [K in TermKind]: Term[K] }, sym: Sym }
+export type Plain = { term: { [K in TermKind]: Term[K] }, sym: Identifier }
 export type JSO = { term: { [K in TermKind]: number }, sym: string }
 
 export type Plan = Plain | JSO
 
 type DataField<Q extends Plan, T> =
-  T extends ITerm[infer K extends TermKind] ? Q['term'][K] :
-  T extends ISymbol ? Q['sym'] :
-  T extends ILiteral<infer U> ? U :
+  T extends ['term', infer K extends TermKind] ? Q['term'][K] :
+  T extends ['sym'] ? Q['sym'] :
+  T extends ['lit', infer U ] ? U :
   never
 
 type DataT<Q extends Plan> = { [K in TermKind]: (
@@ -103,40 +92,54 @@ export type BinaryN = BinaryT<JSO>
 export type UnaryT<P extends Plan> = GraphT<P> & { body: P['term'][TermKind] }
 export type Unary = UnaryT<Plain>
 export type UnaryN = UnaryT<JSO>
-export type Sym = { id: string }
+export type Identifier = { id: string }
 export type Concrete = string | number
 export type Vars = { [i: string]: Graph }
 export type VarsN = { [i: string]: number }
-export type Morphism<K extends TermKind> = (a: Term[K]) => Graph
-export type PMorphism<K extends TermKind> = (a: Term[K]) => Graph | null
 
-export type NullaryKind = 'fls' | 'tru' | 'cst'
-export type UnaryKind = 'itp' | 'fmt' | 'jst' | 'qot'
-export type BinaryKind = 'app' | 'cns' | 'ceq' | 'cne' | 'cgt' | 'clt' | 'cge' | 'cle' | 'add' | 'sub' | 'mul' | 'div' | 'mod'
+type Morphism<K extends TermKind> = (a: Term[K]) => Graph
+type PMorphism<K extends TermKind> = (a: Term[K]) => Graph | null
+type EMorphism = (e: Graph) => null
+type TMorphism<K extends TermKind> = (a: Term[K], ...b: Term[K][]) => Graph
+type Tbl<P extends Plan> = <F>(o: { [K in TermKind]: (e: TermT<P>[K]) => F }) => <K extends TermKind>(e: TermT<P>[K]) => F
+type Make<P extends Plan> = <K extends TermKind>(kind: K, ...data: DataT<P>[K]) => TermT<P>[K]
+type Reaction = <T extends Graph, U extends Graph>(e: T, r: U) => U
+type Sym = (v: string) => Identifier
+type ToPString = (e: Graph) => string | null
 
-export const tblt: <P extends Plan, F>(o: { [K in TermKind]: (e: TermT<P>[K]) => F }) => <K extends TermKind>(e: TermT<P>[K]) => F = o => e => o[e.kind](e)
-export const tbl: <F>(o: { [K in TermKind]: (e: TermT<Plain>[K]) => F }) => <K extends TermKind>(e: TermT<Plain>[K]) => F = o => e => { try { return o[e.kind](e) } catch (e) { throw 0; } }
-export const tbln: <F>(o: { [K in TermKind]: (e: TermT<JSO>[K]) => F }) => <K extends TermKind>(e: TermT<JSO>[K]) => F = o => e => o[e.kind](e)
+export type NullaryKind =
+  'fls' | 'tru' | 'cst' | 'rec'
+export type UnaryKind =
+  'itp' | 'fmt' | 'jst' | 'qot'
+export type BinaryKind =
+  'app' | 'cns' | 'ceq' | 'cne' | 'cgt' | 'clt' |
+  'cge' | 'cle' | 'add' | 'sub' | 'mul' | 'div' | 'mod'
 
-export const maket: <P extends Plan, K extends TermKind>(kind: K, ...data: DataT<P>[K]) => TermT<P>[K] =
+export const tblt: Tbl<any> =
+o => e => o[e.kind](e)
+
+export const tbl: Tbl<Plain> = tblt
+export const tbln: Tbl<JSO> = tblt
+
+export const maket: Make<any> =
 (kind, ...data) => ({ kind, ...Object.fromEntries(data.map((e, i) => [fields[kind][i], e])) })
 
-export const make: <K extends TermKind>(kind: K, ...data: DataT<Plain>[K]) => Term[K] = maket
-export const maken: <K extends TermKind>(kind: K, ...data: DataT<JSO>[K]) => TermN[K] = maket
+export const make: Make<Plain> = maket
+export const maken: Make<JSO> = maket
 
-const reassign: <T extends Graph, U extends Graph>(e: T, r: U) => U =
+const reassign: Reaction =
 (e, r) => {
   enumerate(e).forEach(([i]) => delete e[i])
   Object.assign(e, r)
   return e as unknown as typeof r }
 
-const redirect: <T extends Graph, U extends Graph>(e: T, r: U) => U =
+const redirect: Reaction =
 (e, r) => {
   enumerate(e).forEach(([i]) => delete e[i])
   Object.assign(e, make('mem', r))
   return r }
 
-const apps: (a: Graph, ...b: Graph[]) => Graph  =
+const apps: TMorphism<TermKind> =
 (a, ...b) => {
   for(;;) {
     if (b[0] === undefined) {
@@ -159,11 +162,11 @@ e => {
       return unthunk(e.next(unthunk(e.body), true) as Graph) }
     else return e } }
 
-export const sym: (v: string) => Sym = (() => {
-  const syml: { [i: string]: Sym } = {}
+export const sym: Sym = (() => {
+  const syml: { [i: string]: Identifier } = {}
   return v => syml[v] || (syml[v] = { id: v }) })()
 
-export const flatten_stringlike: (e: Graph) => string | null = e => {
+export const flatten_stringlike: ToPString = e => {
   let prefix = ''
   let parts = [e]
   for (;;) {
@@ -184,13 +187,17 @@ export const flatten_stringlike: (e: Graph) => string | null = e => {
 
 export const reduce: PMorphism<TermKind> = (() => {
 
-const no: (e: Graph) => null = () => null
+const no: EMorphism = () => null
 
 // various application rules
 const apply: PMorphism<'app'> =
 e => {
   const table = tbl({
     uni: lhs => reassign(e, make('ext', make('nym', lhs.sym, e.rhs), lhs.body)),
+    rec: () => {
+      e.lhs = e.rhs
+      e.rhs = e
+      return e },
     cns: lhs => reassign(e, apps(e.rhs, lhs.lhs, lhs.rhs)),
     str: lhs => e.rhs.kind === 'str' ? null : //invalid
       lhs.val[0] !== undefined ?
@@ -207,7 +214,7 @@ e => {
     qot: lhs => {
       const car = () => apps(e.rhs, make('cst'))
       const cdr = () => { e.rhs = apps(e.rhs, make('fls')) }
-      const universal: Morphism<'uni' | 'rec'> = a =>
+      const universal: Morphism<'uni'> = a =>
         literal(make('uni', a.sym, make('qot', a.body)))
       const literal: Morphism<TermKind> = a =>
         reassign(e, apps(car(), a))
@@ -222,13 +229,13 @@ e => {
         lhs.body = l
         return e }
       if (lhs.body.kind === 'ext' || lhs.body.kind === 'mem' || lhs.body.kind === 'nym' || lhs.body.kind === 'thk' || lhs.body.kind === 'itp' || lhs.body.kind === 'fmt') return no(lhs.body) // illegal
-      const part: <K extends TermKind>(k: K, f: Morphism<K>) => Graph | null = (k, f) => {
+      type Part = <K extends TermKind>(k: K, f: Morphism<K>) => Graph | null
+      const part: Part = (k, f) => {
         const b = lhs.body
         if (b.kind === k) return f(b as any)
         cdr()
         return null }
       return part('uni', universal) ||
-      part('rec', universal) ||
       part('app', binary) || part('cns', binary) ||
       part('ceq', binary) || part('cne', binary) ||
       part('cgt', binary) || part('clt', binary) ||
@@ -236,9 +243,8 @@ e => {
       part('add', binary) || part('sub', binary) ||
       part('mul', binary) || part('div', binary) || part('mod', binary) ||
       part('qot', unary) || part('jst', unary) ||
-      part('ref', literal) || part('str', literal) || part('num', literal) ||
-      part('fls', nullary) || part('tru', nullary) || part('cst', nullary) },
-    rec: no,
+      part('fls', nullary) || part('tru', nullary) || part('rec', nullary) || part('cst', nullary) ||
+      part('ref', literal) || part('str', literal) || part('num', literal) },
     fmt: no, itp: no, thk: no, ext: no,
     mem: no, nym: no, app: no, ceq: no,
     cne: no, cgt: no, clt: no, cge: no,
@@ -292,14 +298,6 @@ e => {
     e.body = e.body.body }
   return e.body }
 
-const reduce_rec: PMorphism<'rec'> =
-e => {
-  while (e.body.kind === 'mem' || e.body.kind === 'nym') {
-    e.body = e.body.body }
-  const a = make('ext', make('nym', e.sym, make('fls')), e.body)
-  a.name.body = a
-  return a }
-
 const reduce_ext: PMorphism<'ext'> =
 e => {
   const re: Morphism<TermKind> = a => make('ext', e.name, a)
@@ -325,9 +323,7 @@ e => {
     uni: body => e.name.sym === body.sym ?
       redirect(e, body) :
       reassign(e, make('uni', body.sym, make('ext', e.name, body.body))),
-    rec: body => e.name.sym === body.sym ?
-      redirect(e, body) :
-      reassign(e, make('rec', body.sym, make('ext', e.name, body.body))),
+    rec: nullary,
     ref: body => e.name.sym === body.sym ?
       redirect(e, e.name) :
       reassign(e, body), // existential disappears
@@ -405,33 +401,15 @@ e => {
   const toStr = tbl({
     str: ({ val }) => `${val}`,
     num: ({ val }) => `${val}`,
-    fls: () => `[fls]`,
-    tru: () => `[tru]`,
-    jst: () => `[jst]`,
-    cst: () => `[cst]`,
-    uni: () => `[uni]`,
-    rec: () => `[rec]`,
-    cns: () => `[cns]`,
+    fls: () => `[fls]`, tru: () => `[tru]`,
+    jst: () => `[jst]`, cst: () => `[cst]`,
+    uni: () => `[uni]`, cns: () => `[cns]`,
     qot: () => `[qot]`,
-    thk: no,
-    ext: no,
-    mem: no,
-    nym: no,
-    app: no,
-    ceq: no,
-    cne: no,
-    cgt: no,
-    clt: no,
-    cge: no,
-    cle: no,
-    add: no,
-    sub: no,
-    mul: no,
-    div: no,
-    mod: no,
-    itp: no,
-    fmt: no,
-    ref: no })
+    rec: no, thk: no, ext: no, mem: no, nym: no,
+    app: no, ceq: no, cne: no, cgt: no,
+    clt: no, cge: no, cle: no, add: no,
+    sub: no, mul: no, div: no, mod: no,
+    itp: no, fmt: no, ref: no })
 
 const reduce_fmt: PMorphism<'fmt'> =
 e => {
@@ -462,7 +440,6 @@ return tbl({
   fmt: reduce_fmt,
   mem: reduce_mem,
   nym: reduce_nym,
-  rec: reduce_rec,
   ceq: reduce_compare((a, b) => a === b),
   cne: reduce_compare((a, b) => a !== b),
   cgt: reduce_compare((a, b) => a > b),
@@ -474,7 +451,7 @@ return tbl({
   mul: reduce_arith((a, b) => a * b),
   div: reduce_arith((a, b) => Math.floor(a / b)),
   mod: reduce_arith((a, b) => a % b),
-  uni: no, qot: no, jst: no, cst: no,
+  uni: no, rec: no, qot: no, jst: no, cst: no,
   cns: no, ref: no, str: no, num: no,
   fls: no, tru: no }) })()
 
