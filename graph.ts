@@ -121,40 +121,8 @@ export const tbln: <F>(o: { [K in TermKind]: (e: TermT<JSO>[K]) => F }) => <K ex
 export const maket: <P extends Plan, K extends TermKind>(kind: K, ...data: DataT<P>[K]) => TermT<P>[K] =
 (kind, ...data) => ({ kind, ...Object.fromEntries(data.map((e, i) => [fields[kind][i], e])) })
 
-const equivs = new Map<TermKind, Map<any, Map<any, Graph>>>()
-
-export const make: <K extends TermKind>(kind: K, ...data: DataT<Plain>[K]) => Term[K] =
-(kind, ...data) => {
-  {
-    let k = equivs.get(kind)
-    if (k !== undefined) {
-      if (data[0] === undefined) return k
-      let a = k.get(data[0])
-      if (a !== undefined) {
-        if (data[1] === undefined) return a
-        const b = a.get(data[1])
-        if (b !== undefined) {
-          return b } } } }
-  const e = ({ kind, ...Object.fromEntries(data.map((e, i) => [fields[kind][i], e])) })
-  if (data[0] === undefined) {
-    equivs.set(kind, e)
-    return e }
-  let k = equivs.get(kind)
-  if (k === undefined) {
-    k = new Map()
-    equivs.set(kind, k) }
-  if (data[1] === undefined) {
-    k.set(data[0], e)
-    return e }
-  let a = k.get(data[0])
-  if (a === undefined) {
-    a = new Map()
-    k.set(data[0], a) }
-  a.set(data[1], e)
-  return e }
-
-export const maken: <K extends TermKind>(kind: K, ...data: DataT<JSO>[K]) => TermN[K] =
-(kind, ...data) => ({ kind, ...Object.fromEntries(data.map((e, i) => [fields[kind][i], e])) })
+export const make: <K extends TermKind>(kind: K, ...data: DataT<Plain>[K]) => Term[K] = maket
+export const maken: <K extends TermKind>(kind: K, ...data: DataT<JSO>[K]) => TermN[K] = maket
 
 const reassign: <T extends Graph, U extends Graph>(e: T, r: U) => U =
 (e, r) => {
