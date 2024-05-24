@@ -439,11 +439,11 @@ import { make, reduce, unthunk } from "./graph.js";
         }
     }
     let step = 0;
-    let state = make('fls');
+    let state = make(null, 'fls');
     const set_prompt = s => {
         prompt.innerText = prompt_shadow.innerText = s;
     };
-    const dispatch_waiting = e => make('app', state, e);
+    const dispatch_waiting = e => make(null, 'app', state, e);
     const dispatch = () => __awaiter(void 0, void 0, void 0, function* () {
         const s = cmd.textContent || '';
         const e = read(s);
@@ -539,7 +539,7 @@ import { make, reduce, unthunk } from "./graph.js";
     const reset = () => {
         output.innerHTML = '';
         step = 0;
-        state = make('fls');
+        state = make(null, 'fls');
         dispatch_cb = e => e;
         set_prompt('#');
     };

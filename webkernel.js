@@ -319,7 +319,7 @@ import { make, evaluate, unthunk, sym, flatten_stringlike } from "./graph.js";
             const handler = wakeHandler;
             if (handler) {
                 wakeHandler = () => { };
-                handler(make('cns', make('str', 'key'), make('str', e.key)));
+                handler(make(null, 'cns', make(null, 'str', 'key'), make(null, 'str', e.key)));
             }
         }
         return false;
@@ -332,7 +332,7 @@ import { make, evaluate, unthunk, sym, flatten_stringlike } from "./graph.js";
             const handler = wakeHandler;
             if (handler) {
                 wakeHandler = () => { };
-                handler(make('cns', make('str', 'paste'), make('str', dt)));
+                handler(make(null, 'cns', make(null, 'str', 'paste'), make(null, 'str', dt)));
             }
         }
     });
@@ -418,7 +418,7 @@ import { make, evaluate, unthunk, sym, flatten_stringlike } from "./graph.js";
                                 if (s == null)
                                     return err();
                                 vars[s] = unthunk(evaluate(io.rhs));
-                                io = make('tru');
+                                io = make(null, 'tru');
                             }
                             else
                                 return err();
@@ -433,7 +433,7 @@ import { make, evaluate, unthunk, sym, flatten_stringlike } from "./graph.js";
                                 return err();
                             output.appendChild(txt(s));
                             output.scrollTo(0, output.scrollHeight);
-                            io = make('tru');
+                            io = make(null, 'tru');
                         }
                         else if (l.sym === returnId) {
                             io = io.rhs;
@@ -452,7 +452,7 @@ import { make, evaluate, unthunk, sym, flatten_stringlike } from "./graph.js";
                             if (s == null)
                                 return err();
                             delete vars[s];
-                            io = make('tru');
+                            io = make(null, 'tru');
                         }
                         else if (l.sym === readId) {
                             const s = flatten_stringlike(io.rhs);
@@ -461,7 +461,7 @@ import { make, evaluate, unthunk, sym, flatten_stringlike } from "./graph.js";
                             const a = read(s);
                             if (!a)
                                 return err();
-                            io = make('qot', a);
+                            io = make(null, 'qot', a);
                         }
                         else if (l.sym === evalId) {
                             const r = unthunk(evaluate(io.rhs));
@@ -475,7 +475,7 @@ import { make, evaluate, unthunk, sym, flatten_stringlike } from "./graph.js";
                             const r = unthunk(evaluate(io.rhs));
                             output.appendChild(txt(pretty(r)(0, true)));
                             output.scrollTo(0, output.scrollHeight);
-                            io = make('tru');
+                            io = make(null, 'tru');
                         }
                         else
                             return err();
@@ -489,11 +489,11 @@ import { make, evaluate, unthunk, sym, flatten_stringlike } from "./graph.js";
                     }
                     else if (io.sym === clearId) {
                         output.innerText = '';
-                        io = make('tru');
+                        io = make(null, 'tru');
                     }
                     else if (io.sym === coopId) {
                         yield coop();
-                        io = make('tru');
+                        io = make(null, 'tru');
                     }
                     else
                         return err();
@@ -503,7 +503,7 @@ import { make, evaluate, unthunk, sym, flatten_stringlike } from "./graph.js";
                 const h = queue.shift();
                 if (!h)
                     break;
-                io = make('app', h, io);
+                io = make(null, 'app', h, io);
             }
             const vn = {};
             const p = new Map();

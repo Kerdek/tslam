@@ -26,35 +26,74 @@ const fields = (() => {
 export const tblt = o => e => o[e.kind](e);
 export const tbl = tblt;
 export const tbln = tblt;
-export const maket = (kind, ...data) => (Object.assign({ kind }, Object.fromEntries(data.map((e, i) => [fields[kind][i], e]))));
+let cb_make = () => { };
+let cb_change = () => { };
+let cb_remove_child = () => { };
+let cb_add_child = () => { };
+export const set_cb_make = cb => {
+    cb_make = cb;
+};
+export const set_cb_change = cb => {
+    cb_change = cb;
+};
+export const set_cb_remove_child = cb => {
+    cb_remove_child = cb;
+};
+export const set_cb_add_child = cb => {
+    cb_add_child = cb;
+};
+export const maket = (why, kind, ...data) => {
+    const e = Object.assign({ kind }, Object.fromEntries(data.map((e, i) => [fields[kind][i], e])));
+    cb_make(e, why);
+    if ('lhs' in e)
+        cb_add_child(e, e.lhs, 'lhs');
+    if ('rhs' in e)
+        cb_add_child(e, e.rhs, 'rhs');
+    if ('body' in e)
+        cb_add_child(e, e.body, 'body');
+    if ('name' in e)
+        cb_add_child(e, e.name, 'name');
+    return e;
+};
 export const make = maket;
 export const maken = maket;
 const reassign = (e, r) => {
+    if ('lhs' in e)
+        cb_remove_child(e, e.lhs);
+    if ('rhs' in e)
+        cb_remove_child(e, e.rhs);
+    if ('body' in e)
+        cb_remove_child(e, e.body);
+    if ('name' in e)
+        cb_remove_child(e, e.name);
     enumerate(e).forEach(([i]) => delete e[i]);
     Object.assign(e, r);
+    cb_change(e);
+    if ('lhs' in e)
+        cb_add_child(e, e.lhs, 'lhs');
+    if ('rhs' in e)
+        cb_add_child(e, e.rhs, 'rhs');
+    if ('body' in e)
+        cb_add_child(e, e.body, 'body');
+    if ('name' in e)
+        cb_add_child(e, e.name, 'name');
     return e;
 };
 const redirect = (e, r) => {
+    if ('lhs' in e)
+        cb_remove_child(e, e.lhs);
+    if ('rhs' in e)
+        cb_remove_child(e, e.rhs);
+    if ('body' in e)
+        cb_remove_child(e, e.body);
+    if ('name' in e)
+        cb_remove_child(e, e.name);
     enumerate(e).forEach(([i]) => delete e[i]);
-    Object.assign(e, make('mem', r));
+    Object.assign(e, make(e, 'mem', r));
+    cb_change(e);
+    if ('body' in e)
+        cb_add_child(e, e.body, 'body');
     return r;
-};
-const apps = (a, ...b) => {
-    for (;;) {
-        if (b[0] === undefined) {
-            return a;
-        }
-        a = make('app', a, b[0]);
-        b.shift();
-    }
-};
-export const list2cons = l => {
-    let e = make('fls');
-    while (l.length != 0) {
-        e = make('cns', l[l.length - 1], e);
-        l.pop();
-    }
-    return e;
 };
 export const unthunk = e => {
     for (;;) {
@@ -85,10 +124,10 @@ export const flatten_stringlike = e => {
             prefix += a.val;
         }
         else {
-            const ap = reduce(make('app', a, make('cst')));
+            const ap = reduce(make(e, 'app', a, make(e, 'cst')));
             if (!ap)
                 return null;
-            const bp = reduce(make('app', a, make('fls')));
+            const bp = reduce(make(e, 'app', a, make(e, 'fls')));
             if (!bp)
                 return null;
             parts = [ap, bp, ...rest];
@@ -100,46 +139,54 @@ export const reduce = (() => {
     // various application rules
     const apply = e => {
         const table = tbl({
-            uni: lhs => reassign(e, make('ext', make('nym', lhs.sym, e.rhs), lhs.body)),
+            uni: lhs => reassign(e, make(e, 'ext', make(e, 'nym', lhs.sym, e.rhs), lhs.body)),
             rec: () => {
+                cb_remove_child(e, e.lhs);
                 e.lhs = e.rhs;
+                cb_add_child(e, e.lhs, 'lhs');
+                cb_remove_child(e, e.rhs);
                 e.rhs = e;
+                cb_add_child(e, e.rhs, 'rhs');
                 return e;
             },
-            cns: lhs => reassign(e, apps(e.rhs, lhs.lhs, lhs.rhs)),
+            cns: lhs => reassign(e, make(e, 'app', make(e, 'app', e.rhs, lhs.lhs), lhs.rhs)),
             str: lhs => e.rhs.kind === 'str' ? null : //invalid
                 lhs.val[0] !== undefined ?
-                    reassign(e, apps(e.rhs, make('str', lhs.val[0]), make('str', lhs.val.slice(1)))) :
-                    reassign(e, make('tru')),
+                    reassign(e, make(e, 'app', make(e, 'app', e.rhs, make(e, 'str', lhs.val[0])), make(e, 'str', lhs.val.slice(1)))) :
+                    reassign(e, make(e, 'tru')),
             num: lhs => {
                 if (lhs.val === 0 || e.rhs.kind === 'num') {
-                    return reassign(e, make('tru'));
+                    return reassign(e, make(e, 'tru'));
                 }
-                return reassign(e, apps(e.rhs, make('num', lhs.val - 1)));
+                return reassign(e, make(e, 'app', e.rhs, make(e, 'num', lhs.val - 1)));
             },
             tru: () => redirect(e, e.rhs),
-            fls: () => reassign(e, make('tru')),
-            cst: () => reassign(e, make('jst', e.rhs)),
+            fls: () => reassign(e, make(e, 'tru')),
+            cst: () => reassign(e, make(e, 'jst', e.rhs)),
             jst: lhs => redirect(e, lhs.body),
             qot: lhs => {
-                const car = () => apps(e.rhs, make('cst'));
-                const cdr = () => { e.rhs = apps(e.rhs, make('fls')); };
-                const universal = a => literal(make('uni', a.sym, make('qot', a.body)));
-                const literal = a => reassign(e, apps(car(), a));
+                const car = () => make(e, 'app', e.rhs, make(e, 'cst'));
+                const cdr = () => { e.rhs = make(e, 'app', e.rhs, make(e, 'fls')); };
+                const universal = a => literal(make(e, 'uni', a.sym, make(e, 'qot', a.body)));
+                const literal = a => reassign(e, make(e, 'app', car(), a));
                 const nullary = () => reassign(e, car());
-                const unary = a => reassign(e, apps(car(), make('qot', a.body)));
-                const binary = a => reassign(e, apps(car(), make('qot', a.lhs), make('qot', a.rhs)));
+                const unary = a => reassign(e, make(e, 'app', car(), make(e, 'qot', a.body)));
+                const binary = a => reassign(e, make(e, 'app', make(e, 'app', car(), make(e, 'qot', a.lhs)), make(e, 'qot', a.rhs)));
                 const l = reduce(lhs.body);
                 if (l) {
+                    cb_remove_child(lhs, lhs.body);
                     lhs.body = l;
+                    cb_add_child(lhs, lhs.body, 'body');
                     return e;
                 }
-                if (lhs.body.kind === 'ext' || lhs.body.kind === 'mem' || lhs.body.kind === 'nym' || lhs.body.kind === 'thk' || lhs.body.kind === 'itp' || lhs.body.kind === 'fmt')
-                    return no(lhs.body); // illegal
+                if (lhs.body.kind === 'ext' || lhs.body.kind === 'mem' || lhs.body.kind === 'nym' || lhs.body.kind === 'thk' || lhs.body.kind === 'itp' || lhs.body.kind === 'fmt') {
+                    return no(lhs.body);
+                } // illegal
                 const part = (k, f) => {
                     const b = lhs.body;
-                    if (b.kind === k)
+                    if (b.kind === k) {
                         return f(b);
+                    }
                     cdr();
                     return null;
                 };
@@ -170,8 +217,10 @@ export const reduce = (() => {
                     const bnp = reduce(bn);
                     if (!bnp)
                         return e.next(bn, fail);
+                    cb_remove_child(e, e.body);
                     e.body = bnp;
-                    return make('thk', bnp, e.next);
+                    cb_add_child(e, e.body, 'body');
+                    return make(e, 'thk', bnp, e.next);
                 }
                 return null;
             };
@@ -179,13 +228,19 @@ export const reduce = (() => {
             const bb = reduce(b.body);
             if (!bb)
                 return final(false);
+            cb_remove_child(b, b.body);
             b.body = bb;
-            return make('thk', bb, (bb, fail) => {
+            cb_add_child(b, b.body, 'body');
+            return make(e, 'thk', bb, (bb, fail) => {
+                cb_remove_child(e, e.body);
                 b.body = bb;
+                cb_add_child(e, e.body, 'body');
                 if (fail) {
                     const bp = b.next(bb, fail);
                     if (bp) {
+                        cb_remove_child(e, e.body);
                         e.body = bp;
+                        cb_add_child(e, e.body, 'body');
                         return e.next(bp, fail);
                     }
                     return null;
@@ -195,7 +250,9 @@ export const reduce = (() => {
         }
         const b = reduce(e.body);
         if (b) {
+            cb_remove_child(e, e.body);
             e.body = b;
+            cb_add_child(e, e.body, 'body');
             return e;
         }
         return e.next(e.body, false);
@@ -204,47 +261,76 @@ export const reduce = (() => {
         const l = reduce(e.lhs);
         if (!l)
             return apply(e);
+        cb_remove_child(e, e.lhs);
         e.lhs = l;
-        return make('thk', l, (l, fail) => (e.lhs = l, fail ? e : apply(e)));
+        cb_add_child(e, e.lhs, 'lhs');
+        return make(e, 'thk', l, (l, fail) => {
+            cb_remove_child(e, e.lhs);
+            e.lhs = l;
+            cb_add_child(e, e.lhs, 'lhs');
+            return fail ? e : apply(e);
+        });
     };
     const reduce_mem = e => e.body;
     const reduce_nym = e => {
         while (e.body.kind === 'mem' || e.body.kind === 'nym') {
+            cb_remove_child(e, e.body);
             e.body = e.body.body;
+            cb_add_child(e, e.body, 'body');
         }
         return e.body;
     };
     const reduce_ext = e => {
-        const re = a => make('ext', e.name, a);
+        const re = a => make(e, 'ext', e.name, a);
         const nullary = b => redirect(e, b);
         const unary_dist = k => b => {
             while (b.body.kind === 'mem') {
+                cb_remove_child(b, b.body);
                 b.body = b.body.body;
+                cb_add_child(b, b.body, 'body');
             }
-            return reassign(e, make(k, re(b.body)));
+            return reassign(e, make(e, k, re(b.body)));
         };
         const binary_dist = k => b => {
             while (b.lhs.kind === 'mem') {
+                cb_remove_child(b, b.lhs);
                 b.lhs = b.lhs.body;
+                cb_add_child(b, b.lhs, 'lhs');
             }
             while (b.rhs.kind === 'mem') {
+                cb_remove_child(b, b.rhs);
                 b.rhs = b.rhs.body;
+                cb_add_child(b, b.rhs, 'rhs');
             }
-            return reassign(e, make(k, re(b.lhs), re(b.rhs)));
+            return reassign(e, make(e, k, re(b.lhs), re(b.rhs)));
         };
         const unary_drop = b => {
             while (b.body.kind === 'mem') {
+                cb_remove_child(b, b.body);
                 b.body = b.body.body;
+                cb_add_child(b, b.body, 'body');
             }
             return redirect(e, b);
         };
         const table = tbl({
             thk: no,
-            mem: body => (e.body = body.body),
-            ext: body => (b => b && (e.body = b, reduce_ext(e)))(reduce_ext(body)),
+            mem: body => {
+                cb_remove_child(e, e.body);
+                e.body = body.body;
+                cb_add_child(e, e.body, 'body');
+                return e.body;
+            },
+            ext: body => (b => {
+                if (b) {
+                    cb_remove_child(e, e.body);
+                    e.body = b;
+                    cb_add_child(e, e.body, 'body');
+                }
+                return e;
+            })(reduce_ext(body)),
             uni: body => e.name.sym === body.sym ?
                 redirect(e, body) :
-                reassign(e, make('uni', body.sym, make('ext', e.name, body.body))),
+                reassign(e, make(e, 'uni', body.sym, make(e, 'ext', e.name, body.body))),
             rec: nullary,
             ref: body => e.name.sym === body.sym ?
                 redirect(e, e.name) :
@@ -265,24 +351,33 @@ export const reduce = (() => {
     const reduce_compare = op => e => {
         const final = () => e.lhs.kind === 'str' && e.rhs.kind === 'str' ||
             e.lhs.kind === 'num' && e.rhs.kind === 'num' ?
-            reassign(e, make(op(e.lhs.val, e.rhs.val) ? 'tru' : 'fls')) :
+            reassign(e, make(e, op(e.lhs.val, e.rhs.val) ? 'tru' : 'fls')) :
             // invalid
             null;
         const rightside = () => {
             const r = reduce(e.rhs);
             if (!r)
                 return final();
+            cb_remove_child(e, e.rhs);
             e.rhs = r;
-            return make('thk', r, (r, fail) => (e.rhs = r,
-                fail ? e :
-                    final()));
+            cb_add_child(e, e.rhs, 'rhs');
+            return make(e, 'thk', r, (r, fail) => {
+                cb_remove_child(e, e.rhs);
+                e.rhs = r;
+                cb_add_child(e, e.rhs, 'rhs');
+                return fail ? e : final();
+            });
         };
         const l = reduce(e.lhs);
         if (!l)
             return rightside();
+        cb_remove_child(e, e.lhs);
         e.lhs = l;
-        return make('thk', l, (l, fail) => {
+        cb_add_child(e, e.lhs, 'lhs');
+        return make(e, 'thk', l, (l, fail) => {
+            cb_remove_child(e, e.lhs);
             e.lhs = l;
+            cb_add_child(e, e.lhs, 'lhs');
             if (fail)
                 return e;
             return rightside();
@@ -290,7 +385,7 @@ export const reduce = (() => {
     };
     const reduce_arith = op => e => {
         const final = () => e.lhs.kind === 'num' && e.rhs.kind === 'num' ? (() => {
-            return reassign(e, make('num', op(e.lhs.val, e.rhs.val)));
+            return reassign(e, make(e, 'num', op(e.lhs.val, e.rhs.val)));
         })() :
             // invalid
             null;
@@ -298,17 +393,26 @@ export const reduce = (() => {
             const r = reduce(e.rhs);
             if (!r)
                 return final();
+            cb_remove_child(e, e.rhs);
             e.rhs = r;
-            return make('thk', r, (r, fail) => (e.rhs = r,
-                fail ? e :
-                    final()));
+            cb_add_child(e, e.rhs, 'rhs');
+            return make(e, 'thk', r, (r, fail) => {
+                cb_remove_child(e, e.rhs);
+                e.rhs = r;
+                cb_add_child(e, e.rhs, 'rhs');
+                return fail ? e : final();
+            });
         };
         const l = reduce(e.lhs);
         if (!l)
             return rightside();
+        cb_remove_child(e, e.lhs);
         e.lhs = l;
-        return make('thk', e.lhs, (l, fail) => {
+        cb_add_child(e, e.lhs, 'lhs');
+        return make(e, 'thk', e.lhs, (l, fail) => {
+            cb_remove_child(e, e.lhs);
             e.lhs = l;
+            cb_add_child(e, e.lhs, 'lhs');
             if (fail)
                 return e;
             return rightside();
@@ -316,15 +420,17 @@ export const reduce = (() => {
     };
     const reduce_itp = e => {
         if (e.body.kind === 'fls') {
-            return reassign(e, make('fls'));
+            return reassign(e, make(e, 'fls'));
         }
         if (e.body.kind === 'cns') {
-            return reassign(e, make('cns', make('fmt', e.body.lhs), make('itp', e.body.rhs)));
+            return reassign(e, make(e, 'cns', make(e, 'fmt', e.body.lhs), make(e, 'itp', e.body.rhs)));
         }
         if (e.body.kind === 'ext') {
             const b = reduce_ext(e.body);
             if (b) {
+                cb_remove_child(e, e.body);
                 e.body = b;
+                cb_add_child(e, e.body, 'body');
                 return e;
             }
             return null;
@@ -353,19 +459,25 @@ export const reduce = (() => {
             if (s == null) {
                 return null;
             }
-            return reassign(e, make('str', s));
+            return reassign(e, make(e, 'str', s));
         };
         if (e.body.kind === 'fmt') {
             const t = e.body;
+            cb_remove_child(e, e.body);
             e.body = e.body.body;
+            cb_add_child(e, e.body, 'body');
             return t;
         }
         const b = reduce(e.body);
         if (!b)
             return final();
+        cb_remove_child(e, e.body);
         e.body = b;
-        return make('thk', e.body, (b, fail) => {
+        cb_add_child(e, e.body, 'body');
+        return make(e, 'thk', e.body, (b, fail) => {
+            cb_remove_child(e, e.body);
             e.body = b;
+            cb_add_child(e, e.body, 'body');
             if (fail)
                 return e;
             return final();

@@ -10,15 +10,15 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 };
 (() => __awaiter(void 0, void 0, void 0, function* () {
     document.title = 'mystery playground';
-    const include = src => new Promise(cb => {
+    const include = (type, src) => new Promise(cb => {
         const js = document.createElement('script');
         js.src = src;
-        js.type = 'text/javascript';
+        js.type = type;
         js.addEventListener('load', cb);
         document.head.appendChild(js);
     });
-    yield include('./monaco-editor/samples/node_modules/monaco-editor/min/vs/loader.js');
-    require.config({ paths: { vs: './monaco-editor/samples/node_modules/monaco-editor/min/vs' } });
+    yield include('text/javascript', './monaco/loader.js');
+    require.config({ paths: { vs: './monaco' } });
     const style_rule = (() => {
         const style = document.head.appendChild(document.createElement('style'));
         const ss = style.sheet;
@@ -74,7 +74,6 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
     document.body.append(entry, output);
     require(['vs/editor/editor.main'], function () {
         const editor = monaco.editor.create(entry, {
-            value: ['function x() {', '\tconsole.log("Hello world!");', '}'].join('\n'),
             language: 'javascript',
             minimap: {
                 maxColumn: 80
@@ -119,7 +118,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
                 const blob = new Blob([editor.getValue()], { type: "text/javascript", });
                 const url = URL.createObjectURL(blob);
                 const script = win.document.createElement('script');
-                script.setAttribute('type', "text/javascript");
+                script.setAttribute('type', "module");
                 script.setAttribute('src', url);
                 win.document.head.appendChild(script);
                 const revokeScript = win.document.createElement('script');

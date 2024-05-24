@@ -2,17 +2,17 @@
 
   document.title = 'mystery playground'
 
-  const include: (src: string) => Promise<Event> =
-  src => new Promise(cb => {
+  const include: (type: string, src: string) => Promise<Event> =
+  (type, src) => new Promise(cb => {
     const js = document.createElement('script')
     js.src = src
-    js.type = 'text/javascript'
+    js.type = type
     js.addEventListener('load', cb)
     document.head.appendChild(js) })
 
-  await include('./monaco-editor/samples/node_modules/monaco-editor/min/vs/loader.js')
+  await include('text/javascript', './monaco/loader.js')
 
-  ;(require as any).config({ paths: { vs: './monaco-editor/samples/node_modules/monaco-editor/min/vs' } })
+  ;(require as any).config({ paths: { vs: './monaco' } })
 
   const style_rule: (x: string) => number = (() => {
     const style = document.head.appendChild(document.createElement('style'))
@@ -73,7 +73,6 @@
 
   (require as any)(['vs/editor/editor.main'], function () {
     const editor = monaco.editor.create(entry, {
-      value: ['function x() {', '\tconsole.log("Hello world!");', '}'].join('\n'),
       language: 'javascript',
       minimap: {
         maxColumn: 80 },
@@ -111,7 +110,7 @@
         const blob = new Blob([editor.getValue()], { type: "text/javascript", })
         const url = URL.createObjectURL(blob);
         const script = win.document.createElement('script')
-        script.setAttribute('type', "text/javascript")
+        script.setAttribute('type', "module")
         script.setAttribute('src', url)
         win.document.head.appendChild(script)
         const revokeScript = win.document.createElement('script')

@@ -421,7 +421,7 @@ function roughSizeOfObject(object: { [i: string]: any }) {
         break } } } }
 
 let step = 0
-let state = make('fls') as Graph
+let state = make(null, 'fls') as Graph
 
 const set_prompt: (s: string) => void = s => {
   prompt.innerText = prompt_shadow.innerText = s }
@@ -429,7 +429,7 @@ const set_prompt: (s: string) => void = s => {
 type DispatchCB = (e: Graph) => Graph
 
 const dispatch_waiting: DispatchCB =
-e => make('app', state, e)
+e => make(null, 'app', state, e)
 
 const dispatch = async () => {
   const s = cmd.textContent || ''
@@ -519,7 +519,7 @@ let dispatch_cb: DispatchCB = e => e
 const reset = () => {
 output.innerHTML = ''
 step = 0
-state = make('fls')
+state = make(null, 'fls')
 dispatch_cb = e => e
 set_prompt('#') }
 reset_link.addEventListener('click', reset)

@@ -303,7 +303,7 @@ output.addEventListener('keydown', async e => {
     const handler = wakeHandler
     if (handler) {
       wakeHandler = () => {}
-      handler(make('cns', make('str', 'key'), make('str', e.key))) } }
+      handler(make(null, 'cns', make(null, 'str', 'key'), make(null, 'str', e.key))) } }
   return false })
 
 output.addEventListener('paste', e => {
@@ -314,7 +314,7 @@ output.addEventListener('paste', e => {
     const handler = wakeHandler
     if (handler) {
       wakeHandler = () => {}
-      handler(make('cns', make('str', 'paste'), make('str', dt))) } } })
+      handler(make(null, 'cns', make(null, 'str', 'paste'), make(null, 'str', dt))) } } })
 
 let wakeHandler: (e: Graph) => void = () => {}
 let cancel = { value: false }
@@ -391,7 +391,7 @@ const reset = async () => {
               const s = flatten_stringlike(l.rhs)
               if (s == null) return err()
               vars[s] = unthunk(evaluate(io.rhs))
-              io = make('tru') }
+              io = make(null, 'tru') }
             else return err() }
           else return err() }
         else if (l.kind === 'ref') {
@@ -400,7 +400,7 @@ const reset = async () => {
             if (s == null) return err()
             output.appendChild(txt(s))
             output.scrollTo(0, output.scrollHeight)
-            io = make('tru') }
+            io = make(null, 'tru') }
           else if (l.sym === returnId) {
             io = io.rhs }
           else if (l.sym === getVarId) {
@@ -413,13 +413,13 @@ const reset = async () => {
             const s = flatten_stringlike(io.rhs)
             if (s == null) return err()
             delete vars[s]
-            io = make('tru') }
+            io = make(null, 'tru') }
           else if (l.sym === readId) {
             const s = flatten_stringlike(io.rhs)
             if (s == null) return err()
             const a = read(s)
             if (!a) return err()
-            io = make('qot', a) }
+            io = make(null, 'qot', a) }
           else if (l.sym === evalId) {
             const r = unthunk(evaluate(io.rhs))
             if (r.kind === 'qot') {
@@ -429,7 +429,7 @@ const reset = async () => {
             const r = unthunk(evaluate(io.rhs))
             output.appendChild(txt(pretty(r)(0, true)))
             output.scrollTo(0, output.scrollHeight)
-            io = make('tru') }
+            io = make(null, 'tru') }
           else return err() }
         else return err() }
       else if (io.kind === 'ref') {
@@ -437,15 +437,15 @@ const reset = async () => {
           io = (await new Promise<Graph>(cb => wakeHandler = cb)) }
         else if (io.sym === clearId) {
           output.innerText = ''
-          io = make('tru') }
+          io = make(null, 'tru') }
         else if (io.sym === coopId) {
           await coop()
-          io = make('tru') }
+          io = make(null, 'tru') }
         else return err() }
       else return err()
       const h = queue.shift()
       if (!h) break
-      io = make('app', h, io) }
+      io = make(null, 'app', h, io) }
     const vn: VarsN = {}
     const p = new Map<Graph, number>()
     const q: GraphN[] = []

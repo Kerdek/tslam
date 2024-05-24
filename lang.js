@@ -30,9 +30,9 @@ const token = (s) => {
 };
 const null_tokens = token(['']);
 const list2cns = l => {
-    let e = make('fls');
+    let e = make(null, 'fls');
     while (l.length != 0) {
-        e = make('cns', l[l.length - 1], e);
+        e = make(null, 'cns', l[l.length - 1], e);
         l.pop();
     }
     return e;
@@ -57,7 +57,7 @@ const read_c = tokens => {
                 return lhs;
             if (!rhs)
                 return null;
-            lhs = make('app', lhs, rhs);
+            lhs = make(null, 'app', lhs, rhs);
         }
     };
     const binop_right = (next, ...tks) => () => {
@@ -89,7 +89,7 @@ const read_c = tokens => {
                 return lhs;
             }
             const [le, lk] = l;
-            lhs = make(lk, le, lhs);
+            lhs = make(null, lk, le, lhs);
         }
     };
     const binop_left = (next, ...tks) => () => {
@@ -103,7 +103,7 @@ const read_c = tokens => {
                     const rhs = next();
                     if (!rhs)
                         return null;
-                    lhs = make(kind, lhs, rhs);
+                    lhs = make(null, kind, lhs, rhs);
                     return false;
                 }
             }
@@ -138,7 +138,7 @@ export const read = read_c((tk, expression) => {
     const universal = () => {
         const readu = () => (tk.ws(),
             tk.dt() ? expression() :
-                (id => !id ? null : (e => !e ? null : make('uni', sym(id), e))(readu()))(tk.id()));
+                (id => !id ? null : (e => !e ? null : make(null, 'uni', sym(id), e))(readu()))(tk.id()));
         return readu();
     };
     const existential = () => {
@@ -157,7 +157,7 @@ export const read = read_c((tk, expression) => {
         const b = expression();
         if (!b)
             return null;
-        return make('ext', make('nym', sym(id), d), b);
+        return make(null, 'ext', make(null, 'nym', sym(id), d), b);
     };
     const parenthetical = () => {
         const e = expression();
@@ -182,7 +182,7 @@ export const read = read_c((tk, expression) => {
     };
     const interpolation = () => {
         if (tk.gq()) {
-            return make('fls');
+            return make(null, 'fls');
         }
         const format = x => JSON.parse(`"${x.replaceAll(/\\\`/g, '`')}"`);
         const a = tk.ib();
@@ -192,14 +192,14 @@ export const read = read_c((tk, expression) => {
             const e = expression();
             if (!e || !tk.rc())
                 return null;
-            let parts = [...a ? [make('str', format(a))] : [], e];
+            let parts = [...a ? [make(null, 'str', format(a))] : [], e];
             for (;;) {
                 if (tk.gq()) {
-                    return make('itp', list2cns(parts));
+                    return make(null, 'itp', list2cns(parts));
                 }
                 const b = tk.ib();
                 if (b) {
-                    parts.push(make('str', format(b)));
+                    parts.push(make(null, 'str', format(b)));
                 }
                 else if (tk.it()) {
                     const e = expression();
@@ -213,10 +213,10 @@ export const read = read_c((tk, expression) => {
         }
         if (!tk.gq())
             return null;
-        return make('cns', make('str', format(a)), make('fls'));
+        return make(null, 'cns', make(null, 'str', format(a)), make(null, 'fls'));
     };
-    const quotation = () => (e => e && make('qot', e))(expression());
-    const string = () => (val => tk.dq() ? make('str', JSON.parse(`"${val}"`)) : null)(tk.sb());
+    const quotation = () => (e => e && make(null, 'qot', e))(expression());
+    const string = () => (val => tk.dq() ? make(null, 'str', JSON.parse(`"${val}"`)) : null)(tk.sb());
     const predefined = narrow({
         true: 'tru',
         false: 'fls',
@@ -226,11 +226,11 @@ export const read = read_c((tk, expression) => {
     const identifier = (c) => {
         if (c === 'true' || c === 'false' || c === 'const' || c === 'rec') {
             const l = predefined[c];
-            return make(l);
+            return make(null, l);
         }
-        return make('ref', sym(c));
+        return make(null, 'ref', sym(c));
     };
-    const number = c => make('num', Number.parseFloat(c));
+    const number = c => make(null, 'num', Number.parseFloat(c));
     return [[
             [false, ['as', 'mul'], ['so', 'div'], ['pc', 'mod']],
             [false, ['pl', 'add'], ['hy', 'sub']],
@@ -691,18 +691,18 @@ export const to_outline = e => {
     return out;
 };
 export const jso_to_graph = (i, p, q) => {
-    const nullary = e => make(e.kind);
-    const unary = e => make(e.kind, walk_graph(e.body));
-    const binary = e => make(e.kind, walk_graph(e.lhs), walk_graph(e.rhs));
+    const nullary = e => make(null, e.kind);
+    const unary = e => make(null, e.kind, walk_graph(e.body));
+    const binary = e => make(null, e.kind, walk_graph(e.lhs), walk_graph(e.rhs));
     const table = tbln({
         thk: () => { throw 0; },
-        ext: e => make('ext', walk_name(e.name), walk_graph(e.body)),
-        nym: e => make('nym', sym(e.sym), walk_graph(e.body)),
-        uni: e => make('uni', sym(e.sym), walk_graph(e.body)),
+        ext: e => make(null, 'ext', walk_name(e.name), walk_graph(e.body)),
+        nym: e => make(null, 'nym', sym(e.sym), walk_graph(e.body)),
+        uni: e => make(null, 'uni', sym(e.sym), walk_graph(e.body)),
         rec: nullary,
-        ref: e => make('ref', sym(e.sym)),
-        str: e => make(e.kind, e.val),
-        num: e => make(e.kind, e.val),
+        ref: e => make(null, 'ref', sym(e.sym)),
+        str: e => make(null, e.kind, e.val),
+        num: e => make(null, e.kind, e.val),
         mem: unary, jst: unary, itp: unary, fmt: unary,
         qot: unary,
         app: binary, cns: binary, ceq: binary, cne: binary,
@@ -714,7 +714,7 @@ export const jso_to_graph = (i, p, q) => {
         let e = p[t];
         if (e === undefined) {
             const qt = q[t];
-            e = make('nym', sym(qt.sym), walk_graph(qt.body));
+            e = make(null, 'nym', sym(qt.sym), walk_graph(qt.body));
             p[t] = e;
         }
         return e;
@@ -731,17 +731,17 @@ export const jso_to_graph = (i, p, q) => {
     return walk_graph(i);
 };
 export const graph_to_jso = (e, p, q) => {
-    const nullary = e => maken(e.kind);
-    const unary = e => maken(e.kind, walk_graph(e.body));
-    const binary = e => maken(e.kind, walk_graph(e.lhs), walk_graph(e.rhs));
+    const nullary = e => maken(null, e.kind);
+    const unary = e => maken(null, e.kind, walk_graph(e.body));
+    const binary = e => maken(null, e.kind, walk_graph(e.lhs), walk_graph(e.rhs));
     const table = tbl({
         thk: () => { throw 0; },
-        mem: e => maken('mem', walk_graph(e.body)),
-        nym: e => maken('nym', e.sym.id, walk_graph(e.body)),
-        ext: e => maken('ext', walk_name(e.name), walk_graph(e.body)),
-        uni: e => maken('uni', e.sym.id, walk_graph(e.body)),
+        mem: e => maken(null, 'mem', walk_graph(e.body)),
+        nym: e => maken(null, 'nym', e.sym.id, walk_graph(e.body)),
+        ext: e => maken(null, 'ext', walk_name(e.name), walk_graph(e.body)),
+        uni: e => maken(null, 'uni', e.sym.id, walk_graph(e.body)),
         rec: nullary,
-        ref: e => maken('ref', e.sym.id),
+        ref: e => maken(null, 'ref', e.sym.id),
         app: binary, cns: binary, ceq: binary, cne: binary,
         cgt: binary, clt: binary, cge: binary, cle: binary,
         add: binary, sub: binary, mul: binary, div: binary, mod: binary,
@@ -754,7 +754,7 @@ export const graph_to_jso = (e, p, q) => {
         if (t === undefined) {
             t = counter++;
             p.set(e, t);
-            q[t] = maken('nym', e.sym.id, walk_graph(e.body));
+            q[t] = maken(null, 'nym', e.sym.id, walk_graph(e.body));
         }
         return t;
     };

@@ -47,9 +47,9 @@ export type TokenRange = [number, number, TokenKind]
 
 const list2cns: (l: Graph[]) => Graph =
 l => {
-  let e = make('fls') as Graph;
+  let e = make(null, 'fls') as Graph;
   while (l.length != 0) {
-    e = make('cns', l[l.length - 1] as Graph, e);
+    e = make(null, 'cns', l[l.length - 1] as Graph, e);
     l.pop(); }
   return e; }
 
@@ -67,7 +67,7 @@ const read_c: (tokens: (tk: TokenTable, expression: ReadP) => [[boolean, ...[Tok
       const rhs = prefix_primary()
       if (rhs === undefined) return lhs
       if (!rhs) return null
-      lhs = make('app', lhs, rhs) } }
+      lhs = make(null, 'app', lhs, rhs) } }
   type Binop = (next: ReadP, ...tks: [TokenKind, TermKind][]) => ReadP
   const binop_right: Binop =
   (next, ...tks) => () => {
@@ -91,7 +91,7 @@ const read_c: (tokens: (tk: TokenTable, expression: ReadP) => [[boolean, ...[Tok
       if (l === undefined) {
         return lhs }
       const [le, lk] = l
-      lhs = make(lk, le, lhs) } }
+      lhs = make(null, lk, le, lhs) } }
   const binop_left: Binop =
   (next, ...tks) => () => {
     const l = next()
@@ -102,7 +102,7 @@ const read_c: (tokens: (tk: TokenTable, expression: ReadP) => [[boolean, ...[Tok
         if (tk[token]()) {
           const rhs = next()
           if (!rhs) return null
-          lhs = make(kind, lhs, rhs)
+          lhs = make(null, kind, lhs, rhs)
           return false } }
       return true }
     for (;;) {
@@ -126,7 +126,7 @@ export const read = read_c((tk, expression) => {
   const universal = () => {
     const readu: ReadP = () => (tk.ws(),
       tk.dt() ? expression() :
-      (id => !id ? null : (e => !e ? null : make('uni', sym(id), e))(readu()))(tk.id()))
+      (id => !id ? null : (e => !e ? null : make(null, 'uni', sym(id), e))(readu()))(tk.id()))
     return readu() }
   const existential = () => {
     tk.ws()
@@ -139,7 +139,7 @@ export const read = read_c((tk, expression) => {
     if (!tk.dt()) return null
     const b = expression()
     if (!b) return null
-    return make('ext', make('nym', sym(id), d), b) }
+    return make(null, 'ext', make(null, 'nym', sym(id), d), b) }
   const parenthetical = () => {
     const e = expression()
     if (!e || !tk.rp()) return null
@@ -155,30 +155,30 @@ export const read = read_c((tk, expression) => {
       if (!tk.cm()) return null } }
   const interpolation = () => {
     if (tk.gq()) {
-      return make('fls') }
+      return make(null, 'fls') }
     const format: (x: string) => string = x => JSON.parse(`"${x.replaceAll(/\\\`/g, '`')}"`)
     const a = tk.ib()
     if (a == null) return null
     if (tk.it()) {
       const e = expression()
       if (!e || !tk.rc()) return null
-      let parts: Graph[] = [...a ? [make('str', format(a))] : [], e]
+      let parts: Graph[] = [...a ? [make(null, 'str', format(a))] : [], e]
       for (;;) {
         if (tk.gq()) {
-          return make('itp', list2cns(parts)) }
+          return make(null, 'itp', list2cns(parts)) }
         const b = tk.ib()
         if (b) {
-          parts.push(make('str', format(b))) }
+          parts.push(make(null, 'str', format(b))) }
         else if (tk.it()) {
           const e = expression()
           if (!e || !tk.rc()) return null
           parts.push(e) }
         else if (!tk.gq()) return null } }
     if (!tk.gq()) return null
-    return make('cns', make('str', format(a)), make('fls')) }
-  const quotation = () => (e => e && make('qot', e))(expression())
+    return make(null, 'cns', make(null, 'str', format(a)), make(null, 'fls')) }
+  const quotation = () => (e => e && make(null, 'qot', e))(expression())
   const string = () =>
-    (val => tk.dq() ? make('str', JSON.parse(`"${val}"`)) : null)(tk.sb())
+    (val => tk.dq() ? make(null, 'str', JSON.parse(`"${val}"`)) : null)(tk.sb())
   const predefined = narrow({
     true: 'tru',
     false: 'fls',
@@ -187,10 +187,10 @@ export const read = read_c((tk, expression) => {
   const identifier: (c: string) => Graph = (c: keyof typeof predefined | string) => {
     if (c === 'true' || c === 'false' || c === 'const' || c === 'rec') {
       const l = predefined[c]
-      return make(l) }
-    return make('ref', sym(c)) }
+      return make(null, l) }
+    return make(null, 'ref', sym(c)) }
   const number: (c: string) => Graph = c =>
-    make('num', Number.parseFloat(c))
+    make(null, 'num', Number.parseFloat(c))
   return [[
     [false, ['as', 'mul'], ['so', 'div'], ['pc', 'mod']],
     [false, ['pl', 'add'], ['hy', 'sub']],
@@ -610,18 +610,18 @@ e => {
 
 export const jso_to_graph: (i: number, p: Graph[], q: GraphN[]) => Graph =
 (i, p, q) => {
-  const nullary: (e: GraphN) => Graph = e => make(e.kind)
-  const unary: (e: UnaryN) => Graph = e => make(e.kind, walk_graph(e.body))
-  const binary: (e: BinaryN) => Graph = e => make(e.kind, walk_graph(e.lhs), walk_graph(e.rhs))
+  const nullary: (e: GraphN) => Graph = e => make(null, e.kind)
+  const unary: (e: UnaryN) => Graph = e => make(null, e.kind, walk_graph(e.body))
+  const binary: (e: BinaryN) => Graph = e => make(null, e.kind, walk_graph(e.lhs), walk_graph(e.rhs))
   const table: (e: GraphN) => Graph = tbln({
     thk: () => { throw 0 }, // insupportable
-    ext: e => make('ext', walk_name(e.name), walk_graph(e.body)),
-    nym: e => make('nym', sym(e.sym), walk_graph(e.body)),
-    uni: e => make('uni', sym(e.sym), walk_graph(e.body)),
+    ext: e => make(null, 'ext', walk_name(e.name), walk_graph(e.body)),
+    nym: e => make(null, 'nym', sym(e.sym), walk_graph(e.body)),
+    uni: e => make(null, 'uni', sym(e.sym), walk_graph(e.body)),
     rec: nullary,
-    ref: e => make('ref', sym(e.sym)),
-    str: e => make(e.kind, e.val),
-    num: e => make(e.kind, e.val),
+    ref: e => make(null, 'ref', sym(e.sym)),
+    str: e => make(null, e.kind, e.val),
+    num: e => make(null, e.kind, e.val),
     mem: unary, jst: unary, itp: unary, fmt: unary,
     qot: unary,
     app: binary, cns: binary, ceq: binary, cne: binary,
@@ -633,7 +633,7 @@ export const jso_to_graph: (i: number, p: Graph[], q: GraphN[]) => Graph =
       let e = p[t] as Term['nym'] | undefined
       if (e === undefined) {
         const qt = q[t] as TermN['nym']
-        e = make('nym', sym(qt.sym), walk_graph(qt.body))
+        e = make(null, 'nym', sym(qt.sym), walk_graph(qt.body))
         p[t] = e }
       return e }
   const walk_graph: (t: number) => Graph =
@@ -648,17 +648,17 @@ export const jso_to_graph: (i: number, p: Graph[], q: GraphN[]) => Graph =
 
 export const graph_to_jso: (e: Graph, p: Map<Graph, number>, q: GraphN[]) => number =
 (e, p, q) => {
-  const nullary: (e: Term[NullaryKind]) => GraphN = e => maken(e.kind)
-  const unary: (e: Term[UnaryKind]) => GraphN = e => maken(e.kind, walk_graph(e.body))
-  const binary: (e: Term[BinaryKind]) => GraphN = e => maken(e.kind, walk_graph(e.lhs), walk_graph(e.rhs))
+  const nullary: (e: Term[NullaryKind]) => GraphN = e => maken(null, e.kind)
+  const unary: (e: Term[UnaryKind]) => GraphN = e => maken(null, e.kind, walk_graph(e.body))
+  const binary: (e: Term[BinaryKind]) => GraphN = e => maken(null, e.kind, walk_graph(e.lhs), walk_graph(e.rhs))
   const table = tbl<GraphN>({
     thk: () => { throw 0 }, // insupportable
-    mem: e => maken('mem', walk_graph(e.body)),
-    nym: e => maken('nym', e.sym.id, walk_graph(e.body)),
-    ext: e => maken('ext', walk_name(e.name), walk_graph(e.body)),
-    uni: e => maken('uni', e.sym.id, walk_graph(e.body)),
+    mem: e => maken(null, 'mem', walk_graph(e.body)),
+    nym: e => maken(null, 'nym', e.sym.id, walk_graph(e.body)),
+    ext: e => maken(null, 'ext', walk_name(e.name), walk_graph(e.body)),
+    uni: e => maken(null, 'uni', e.sym.id, walk_graph(e.body)),
     rec: nullary,
-    ref: e => maken('ref', e.sym.id),
+    ref: e => maken(null, 'ref', e.sym.id),
     app: binary, cns: binary, ceq: binary, cne: binary,
     cgt: binary, clt: binary, cge: binary, cle: binary,
     add: binary, sub: binary, mul: binary, div: binary, mod: binary,
@@ -670,7 +670,7 @@ export const graph_to_jso: (e: Graph, p: Map<Graph, number>, q: GraphN[]) => num
     if (t === undefined) {
       t = counter++
       p.set(e, t)
-      q[t] = maken('nym', e.sym.id, walk_graph(e.body)) }
+      q[t] = maken(null, 'nym', e.sym.id, walk_graph(e.body)) }
     return t }
   const walk_graph: (e: Graph) => number = e => {
     let t = p.get(e)
