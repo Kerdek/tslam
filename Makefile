@@ -18,8 +18,9 @@
 # 	npx tsc
 # 	cp $(TS_INS) out
 
-ctfftw.wasm: ctfftc.c
-	clang -O3 -target wasm32-wasi --sysroot=wasi-libc/sysroot -Wl,--export=ctfftcf -Wl,--export=ctfftcd -Wl,--export=ctfftcl -Wl,--export=brscd -Wl,--export=br -o ctfftw.wasm ctfftc.c
+main.wasm: main.cc ujs.hh
+	clang++ -Wall -Werror -O3 -flto=auto -target wasm32-wasi --sysroot=wasi-libc/sysroot -nodefaultlibs -Wl,--allow-undefined -Wl,--export=invoke_void -Wl,--export=invoke_value -lc -o main.wasm -DNDEBUG --std=c++2a main.cc
+	wasm-opt main.wasm -O4 -o main.wasm
 
-# clean:
-# 	rm -rf out
+clean:
+	rm -f main.wasm
