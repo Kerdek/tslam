@@ -1,5 +1,5 @@
 {
-  "files": ["wasm.ts", "ujs.ts"],
+  "files": ["church.ts", "run.ts", "playground.ts", "playground.d.ts"],
   // "files": ["wasm.ts", "plotter.ts", "plotter.d.ts", "viz.d.ts", "lang.ts", "graph.ts", "webrepl.ts", "webkernel.ts"],
     "compilerOptions": {
       "target": "es2022",
