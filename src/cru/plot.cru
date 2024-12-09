@@ -1,0 +1,87 @@
+#"pre.cru"\id let car cdr cons head tail compose composer ->
+#"drawing_io.cru"\return bind do arc beginPath moveTo lineTo strokeStyle fillStyle stroke fill fillRect ->
+#"builtin_logic.cru"\rec if and or not ->
+#"builtin_arithmetic.cru"\neg cpl mul div mod add sub shl shr eq neq gt ge lt le bcj bxj bdj ->
+#"builtin_math.cru"\pi ceil floor sqrt pow exp log sin cos tan asin acos atan sinh cosh tanh asinh acosh atanh ->
+
+plot f -10 10 -10 10 100 300 100 300
+
+  where (
+    f x = sin x,
+
+    plot f xmin xmax ymin ymax wmin wmax hmin hmax =
+      do box $
+      do x_axis $
+      do y_axis $
+      do plot_line $
+      return void
+      where (
+        xoff = add wmin (mul (sub wmax wmin) (div (neg xmin) (sub xmax xmin))),
+        yoff = add hmax (mul (sub hmax hmin) (div (neg ymin) (sub ymin ymax))),
+        xscale = div (sub wmax wmin) (sub xmax xmin),
+        yscale = div (sub hmax hmin) (sub ymin ymax),
+
+        w2x w = div (sub w xoff) xscale,
+        y2h y = add (mul y yscale) yoff,
+
+        x_axis =
+          do beginPath $
+          if (or (gt yoff hmax) (lt yoff hmin)) (
+            return void) $
+          do (moveTo wmin yoff) $
+          do (lineTo wmax yoff) $
+          do (strokeStyle "gray") $
+          do stroke $
+          return void,
+
+        y_axis =
+          do beginPath $
+          if (or (gt xoff wmax) (lt xoff wmin)) (
+            return void) $
+          do (moveTo xoff hmin) $
+          do (lineTo xoff hmax) $
+          do (strokeStyle "gray") $
+          do stroke $
+          return void,
+
+        box =
+          do beginPath $
+          do (moveTo wmin hmin) $
+          do (lineTo wmax hmin) $
+          do (lineTo wmax hmax) $
+          do (lineTo wmin hmax) $
+          do (lineTo wmin hmin) $
+          do (strokeStyle "white") $
+          do stroke $
+          return void,
+
+        plot_line =
+          do beginPath $
+          do (
+            if (and (le h hmax) (ge h hmin)) (
+              do (moveTo wmin h) $
+              line (add wmin 1)) $
+            gap (add wmin 1)) $
+          do (strokeStyle "white") $
+          stroke
+          where (
+            h = fwh wmin,
+            fwh w = y2h (f (w2x w)),
+            gap w =
+              if (gt w wmax) (
+                return void) $
+              if (and (le h hmax) (ge h hmin)) (
+                do (moveTo w h) $
+                line (add w 1)) $
+              gap (add w 1)
+              where (
+                h = fwh w),
+            line w =
+              if (gt w wmax) (
+                return void) $
+              if (or (gt h hmax) (lt h hmin)) (
+                gap (add w 1)) $
+              do (lineTo w h) $
+              line (add w 1)
+              where (
+                h = fwh w))))
