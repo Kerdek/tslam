@@ -1,0 +1,16 @@
+#"pre.cru"\id let car cdr cons head tail compose composer ->
+export
+  where (
+    export f = f return bind do arc beginPath moveTo lineTo strokeStyle fillStyle stroke fill fillRect,
+    return x = cons "return" x,
+    bind x y = cons "bind" (cons x y),
+    do x y = bind x (car y),
+    arc x y r a b = cons "arc" $ cons x $ cons y $ cons r $ cons a $ b,
+    beginPath = cons "beginPath" cdr,
+    moveTo a b = cons "moveTo" $ cons a $ b,
+    lineTo a b = cons "lineTo" $ cons a $ b,
+    strokeStyle x = cons "strokeStyle" x,
+    fillStyle x = cons "fillStyle" x,
+    stroke = cons "stroke" cdr,
+    fill = cons "fill" cdr,
+    fillRect a b c d = cons "fillRect" $ cons a $ cons b $ cons c $ d)

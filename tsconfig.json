@@ -1,7 +1,7 @@
 {
-  "files": ["church.ts", "run.ts", "playground.ts", "playground.d.ts"],
-  // "files": ["wasm.ts", "plotter.ts", "plotter.d.ts", "viz.d.ts", "lang.ts", "graph.ts", "webrepl.ts", "webkernel.ts"],
-    "compilerOptions": {
+  "include": [ "./src" ],
+  "exclude": [ ],
+  "compilerOptions": {
       "target": "es2022",
       "module": "es2022",
       "strict": true,
@@ -12,6 +12,7 @@
       "noUnusedParameters": true,
       "exactOptionalPropertyTypes": true,
       "lib": [ "es2022", "DOM" ],
+      "rootDir": "./",
       "outDir": "./",
       "sourceMap": true,
       "moduleResolution": "Node" } }
